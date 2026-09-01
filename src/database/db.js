@@ -1,35 +1,51 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
-const DATA_DIR = path.join(__dirname, '../../data');
+const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+const DATA_DIR = isVercel ? path.join(os.tmpdir(), 'data') : path.join(__dirname, '../../data');
 
-// Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-}
+// Ensure data directory exists safely
+try {
+    if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+} catch (e) {}
 
 const getFilePath = (collection) => path.join(DATA_DIR, `${collection}.json`);
 
-// Read collection
+// In-memory fallback cache for Vercel Serverless
+const memoryStore = {};
+
+// Read collection safely
 function readCollection(collection, defaultData = []) {
     const filePath = getFilePath(collection);
-    if (!fs.existsSync(filePath)) {
-        fs.writeFileSync(filePath, JSON.stringify(defaultData, null, 2));
-        return defaultData;
-    }
     try {
+        if (!fs.existsSync(filePath)) {
+            try {
+                fs.writeFileSync(filePath, JSON.stringify(defaultData, null, 2));
+            } catch (wErr) {
+                memoryStore[collection] = memoryStore[collection] || defaultData;
+                return memoryStore[collection];
+            }
+            return defaultData;
+        }
         const content = fs.readFileSync(filePath, 'utf8');
         return JSON.parse(content);
     } catch (err) {
-        console.error(`Error reading ${collection}:`, err);
-        return defaultData;
+        return memoryStore[collection] || defaultData;
     }
 }
 
-// Write collection
+// Write collection safely
 function writeCollection(collection, data) {
-    const filePath = getFilePath(collection);
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    memoryStore[collection] = data;
+    try {
+        const filePath = getFilePath(collection);
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    } catch (err) {
+        // Fallback to in-memory store on read-only environments
+    }
 }
 
 // Helper methods
@@ -44,7 +60,6 @@ const db = {
         post.id = post.id || `post_${Date.now()}`;
         post.createdAt = post.createdAt || new Date().toISOString();
         posts.unshift(post);
-        // Keep last 50 posts only for lightweight SaaS history
         if (posts.length > 50) posts.pop();
         writeCollection('posts', posts);
         return post;
@@ -114,13 +129,12 @@ const db = {
         const logEntry = {
             id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
             timestamp: new Date().toISOString(),
-            type, // 'POST', 'DM_REPLY', 'COMMENT_REACTION', 'COMMENT_REPLY', 'WEBHOOK'
-            platform, // 'FACEBOOK', 'INSTAGRAM', 'TELEGRAM', 'LINKEDIN', 'WHATSAPP'
+            type,
+            platform,
             details,
             status
         };
         logs.unshift(logEntry);
-        // Keep last 100 logs for lightweight log history
         if (logs.length > 100) logs.pop();
         writeCollection('logs', logs);
         return logEntry;

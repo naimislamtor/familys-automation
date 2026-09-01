@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
+const os = require('os');
 require('dotenv').config();
 
 const postController = require('./src/controllers/post.controller');
@@ -14,19 +15,20 @@ const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isVercel = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
 
 // Initialize Background AI Cron Scheduler (If supported)
 try {
     initAICronScheduler();
 } catch (e) {}
 
-// Ensure uploads folder exists
-const uploadsDir = path.join(__dirname, 'public/uploads');
-if (!fs.existsSync(uploadsDir)) {
-    try {
+// Ensure uploads folder exists safely
+const uploadsDir = isVercel ? path.join(os.tmpdir(), 'uploads') : path.join(__dirname, 'public/uploads');
+try {
+    if (!fs.existsSync(uploadsDir)) {
         fs.mkdirSync(uploadsDir, { recursive: true });
-    } catch (e) {}
-}
+    }
+} catch (e) {}
 
 // Multer Storage Setup
 const storage = multer.diskStorage({
