@@ -1,18 +1,23 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const sharp = require('sharp');
+const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const db = require('../database/db');
 const facebookService = require('./facebook.service');
 const instagramService = require('./instagram.service');
 const telegramService = require('./telegram.service');
 const linkedinService = require('./linkedin.service');
 
-// Embedded TrueType (.TTF) Google Bengali Font for librsvg/sharp PNG compatibility
-let bengaliTTFBase64 = '';
+// Register HindSiliguri TrueType fonts for @napi-rs/canvas
+const fontPathBold = path.join(__dirname, '../fonts/HindSiliguri-Bold.ttf');
+const fontPathRegular = path.join(__dirname, '../fonts/HindSiliguri-Regular.ttf');
+
 try {
-    bengaliTTFBase64 = require('./bengaliTTFBase64');
-} catch (e) {}
+    if (fs.existsSync(fontPathBold)) GlobalFonts.registerFromPath(fontPathBold, 'HindSiliguriBold');
+    if (fs.existsSync(fontPathRegular)) GlobalFonts.registerFromPath(fontPathRegular, 'HindSiliguriRegular');
+} catch (e) {
+    console.log('[Canvas Font Register Notice]:', e.message);
+}
 
 // Google Gemini Models to try in fallback order
 const GEMINI_MODELS = [
@@ -28,85 +33,102 @@ const BANNER_COLOR_PALETTES = [
     {
         bgStart: '#0f172a', bgMid: '#1e1b4b', bgEnd: '#31104b',
         badgeBg: 'rgba(99, 102, 241, 0.25)', badgeBorder: 'rgba(129, 140, 248, 0.4)', badgeText: '#a5b4fc',
-        cardBg: 'rgba(15, 23, 42, 0.85)', cardBorder: 'rgba(255, 255, 255, 0.18)',
-        goldTextStart: '#fbbf24', goldTextEnd: '#f59e0b', strokeColor: '#fbbf24', subTextColor: '#cbd5e1'
+        cardBg: 'rgba(15, 23, 42, 0.88)', cardBorder: 'rgba(255, 255, 255, 0.18)',
+        gold1: '#fbbf24', gold2: '#f59e0b', sub: '#cbd5e1'
     },
     // 2. Neon Cyber Purple
     {
         bgStart: '#18002e', bgMid: '#3b0764', bgEnd: '#1e1b4b',
         badgeBg: 'rgba(217, 70, 239, 0.25)', badgeBorder: 'rgba(240, 171, 252, 0.4)', badgeText: '#f5d0fe',
-        cardBg: 'rgba(24, 0, 46, 0.85)', cardBorder: 'rgba(240, 171, 252, 0.25)',
-        goldTextStart: '#38bdf8', goldTextEnd: '#0284c7', strokeColor: '#38bdf8', subTextColor: '#e9d5ff'
+        cardBg: 'rgba(24, 0, 46, 0.88)', cardBorder: 'rgba(240, 171, 252, 0.25)',
+        gold1: '#38bdf8', gold2: '#0284c7', sub: '#e9d5ff'
     },
     // 3. Royal Emerald Gold
     {
         bgStart: '#022c22', bgMid: '#064e3b', bgEnd: '#0f172a',
         badgeBg: 'rgba(16, 185, 129, 0.25)', badgeBorder: 'rgba(110, 231, 183, 0.4)', badgeText: '#a7f3d0',
-        cardBg: 'rgba(2, 44, 34, 0.85)', cardBorder: 'rgba(255, 255, 255, 0.2)',
-        goldTextStart: '#fde047', goldTextEnd: '#d97706', strokeColor: '#fde047', subTextColor: '#ecfdf5'
+        cardBg: 'rgba(2, 44, 34, 0.88)', cardBorder: 'rgba(255, 255, 255, 0.2)',
+        gold1: '#fde047', gold2: '#d97706', sub: '#ecfdf5'
     },
     // 4. Sunset Coral Glow
     {
         bgStart: '#4c0519', bgMid: '#881337', bgEnd: '#2e1065',
         badgeBg: 'rgba(244, 63, 94, 0.25)', badgeBorder: 'rgba(251, 113, 133, 0.4)', badgeText: '#fecdd3',
-        cardBg: 'rgba(76, 5, 25, 0.85)', cardBorder: 'rgba(255, 255, 255, 0.2)',
-        goldTextStart: '#fef08a', goldTextEnd: '#f59e0b', strokeColor: '#fef08a', subTextColor: '#ffe4e6'
+        cardBg: 'rgba(76, 5, 25, 0.88)', cardBorder: 'rgba(255, 255, 255, 0.2)',
+        gold1: '#fef08a', gold2: '#f59e0b', sub: '#ffe4e6'
     }
 ];
 
 /**
- * Creates an aesthetic 1080x1080 SVG Frame Card Banner with Embedded TrueType Bengali Font
+ * Creates an aesthetic 1080x1080 Real PNG Graphic Card Banner with @napi-rs/canvas and TrueType Bengali Font
  */
-function createAIPostBannerSVG({ line1, line2, line3, subText, badgeText }) {
-    const safeLine1 = (line1 || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const safeLine2 = (line2 || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const safeLine3 = (line3 || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const safeSub = (subText || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const safeBadge = (badgeText || 'DAILY UPDATE').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function createAIPostBannerCanvasBuffer({ line1, line2, line3, subText, badgeText }) {
+    const canvas = createCanvas(1080, 1080);
+    const ctx = canvas.getContext('2d');
 
     const theme = BANNER_COLOR_PALETTES[Math.floor(Math.random() * BANNER_COLOR_PALETTES.length)];
 
-    const fontStyle = bengaliTTFBase64 ? `@font-face {
-        font-family: 'Hind Siliguri';
-        font-style: normal;
-        font-weight: 700;
-        src: url('data:font/ttf;charset=utf-8;base64,${bengaliTTFBase64}') format('truetype');
-      }` : `@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@600;700&amp;display=swap');`;
+    // 1. Background Base Gradient
+    const bgGlow = ctx.createLinearGradient(0, 0, 1080, 1080);
+    bgGlow.addColorStop(0, theme.bgStart);
+    bgGlow.addColorStop(0.5, theme.bgMid);
+    bgGlow.addColorStop(1, theme.bgEnd);
+    ctx.fillStyle = bgGlow;
+    ctx.fillRect(0, 0, 1080, 1080);
 
-    return `<svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <style>
-      ${fontStyle}
-      .bengali-font {
-        font-family: 'Hind Siliguri', sans-serif;
-      }
-    </style>
-    <linearGradient id="bgGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${theme.bgStart}"/>
-      <stop offset="50%" stop-color="${theme.bgMid}"/>
-      <stop offset="100%" stop-color="${theme.bgEnd}"/>
-    </linearGradient>
-    <linearGradient id="goldText" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="${theme.goldTextStart}"/>
-      <stop offset="100%" stop-color="${theme.goldTextEnd}"/>
-    </linearGradient>
-  </defs>
+    // 2. Glassmorphic Central Graphic Card Frame
+    ctx.fillStyle = theme.cardBg;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 3;
+    ctx.fillRect(70, 70, 940, 940);
+    ctx.strokeRect(70, 70, 940, 940);
 
-  <rect width="1080" height="1080" fill="url(#bgGlow)"/>
-  <rect x="70" y="70" width="940" height="940" rx="36" fill="${theme.cardBg}" stroke="${theme.cardBorder}" stroke-width="3"/>
-  <rect x="120" y="130" width="340" height="64" rx="32" fill="${theme.badgeBg}" stroke="${theme.badgeBorder}" stroke-width="2"/>
-  <text x="290" y="172" class="bengali-font" font-size="26" font-weight="bold" fill="${theme.badgeText}" text-anchor="middle">${safeBadge}</text>
-  <text x="540" y="340" class="bengali-font" font-size="44" font-weight="bold" fill="#ffffff" text-anchor="middle">${safeLine1}</text>
-  <text x="540" y="420" class="bengali-font" font-size="42" font-weight="bold" fill="#ffffff" text-anchor="middle">${safeLine2}</text>
-  <text x="540" y="500" class="bengali-font" font-size="42" font-weight="bold" fill="url(#goldText)" text-anchor="middle">${safeLine3}</text>
-  <line x1="420" y1="600" x2="660" y2="600" stroke="${theme.strokeColor}" stroke-width="4" stroke-linecap="round"/>
-  <text x="540" y="700" class="bengali-font" font-size="28" fill="${theme.subTextColor}" text-anchor="middle">${safeSub}</text>
-  <text x="540" y="930" class="bengali-font" font-size="24" font-weight="bold" fill="#94a3b8" text-anchor="middle" letter-spacing="4">✨ FAMILY'S POST</text>
-</svg>`;
+    // 3. Category Badge
+    ctx.fillStyle = theme.badgeBg;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.fillRect(120, 130, 340, 64);
+    ctx.strokeRect(120, 130, 340, 64);
+
+    ctx.fillStyle = theme.badgeText;
+    ctx.font = '26px HindSiliguriBold, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(badgeText || '✨ DAILY UPDATE', 290, 172);
+
+    // 4. Main Title Lines (Bengali Text rendered natively with HindSiliguri TTF)
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '44px HindSiliguriBold, sans-serif';
+    if (line1) ctx.fillText(line1, 540, 340);
+    if (line2) ctx.fillText(line2, 540, 420);
+
+    // Line 3 Gold Highlight
+    ctx.fillStyle = theme.gold1;
+    ctx.font = '44px HindSiliguriBold, sans-serif';
+    if (line3) ctx.fillText(line3, 540, 500);
+
+    // Gold Decorative Line
+    ctx.strokeStyle = theme.gold1;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(420, 600);
+    ctx.lineTo(660, 600);
+    ctx.stroke();
+
+    // Subtitle reflection
+    ctx.fillStyle = theme.sub;
+    ctx.font = '28px HindSiliguriRegular, sans-serif';
+    if (subText) ctx.fillText(subText, 540, 700);
+
+    // Footer Brand Header (Custom User Branding)
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '24px HindSiliguriBold, sans-serif';
+    ctx.fillText('✨ FAMILY\'S POST', 540, 930);
+
+    return canvas.toBuffer('image/png');
 }
 
 /**
- * Generate Content & Matching Real PNG Frame Card Banner for ANY Custom Topic Prompt
+ * Generate Content & Real PNG Frame Card Banner for ANY Custom Topic Prompt
  */
 async function generateContentAndImageForTopic(userTopicPrompt) {
     const settings = db.getSettings();
@@ -194,18 +216,11 @@ Example JSON output:
         badgeText: cardBadge || '✨ FAMILY\'S POST'
     };
 
-    // Render 1080x1080 SVG Frame Card Banner with TrueType Bengali Font Embedding
-    const svgCode = createAIPostBannerSVG(cardData);
+    // Generate Real 1080x1080 PNG Image Buffer using @napi-rs/canvas and TrueType Font
+    const pngBuf = createAIPostBannerCanvasBuffer(cardData);
+    const mediaUrl = `data:image/png;base64,${pngBuf.toString('base64')}`;
 
-    // Rasterize SVG to REAL PNG Buffer using Sharp with TrueType Font Support
-    let mediaUrl = `data:image/svg+xml;base64,${Buffer.from(svgCode).toString('base64')}`;
-    try {
-        const pngBuffer = await sharp(Buffer.from(svgCode)).png({ quality: 95 }).toBuffer();
-        mediaUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
-        console.log(`[AI PNG Banner Generator] Successfully rasterized 1080x1080 PNG Banner with TrueType Bengali Font!`);
-    } catch (sharpErr) {
-        console.error('[Sharp PNG Conversion Notice]:', sharpErr.message);
-    }
+    console.log(`[AI PNG Banner Engine] Successfully generated 1080x1080 Native PNG Banner using @napi-rs/canvas!`);
 
     return { postText, cardData, mediaUrl };
 }

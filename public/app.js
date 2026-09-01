@@ -261,17 +261,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     postText.value = data.postText;
                     previewTextDisplay.textContent = data.postText;
 
-                    let pngUrl = '';
-                    if (data.cardData) {
-                        pngUrl = drawAIPostBannerCanvas(data.cardData);
-                    }
-                    if (!pngUrl && data.mediaUrl) {
-                        pngUrl = await convertSvgToPngDataUrl(data.mediaUrl);
-                    }
-
-                    if (pngUrl) {
-                        postMediaUrl.value = pngUrl;
-                        updateMediaPreview(pngUrl);
+                    if (data.mediaUrl) {
+                        postMediaUrl.value = data.mediaUrl;
+                        updateMediaPreview(data.mediaUrl);
                     }
 
                     showToast('AI Post & Media Preview generated! Review & click Publish when ready.');
