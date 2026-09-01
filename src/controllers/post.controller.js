@@ -147,6 +147,7 @@ async function generateAIPreview(req, res) {
         return res.json({
             success: true,
             postText: result.postText,
+            cardData: result.cardData,
             mediaUrl: result.mediaUrl
         });
     } catch (err) {

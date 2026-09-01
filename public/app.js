@@ -154,30 +154,88 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMediaPreview(postMediaUrl.value.trim());
     });
 
-    // Helper: Convert SVG Data URL to high-res 1080x1080 PNG Data URL in browser canvas
-    function convertSvgToPngDataUrl(svgDataUrl) {
-        return new Promise((resolve) => {
-            if (!svgDataUrl || !svgDataUrl.startsWith('data:image/svg+xml')) {
-                return resolve(svgDataUrl);
-            }
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = 1080;
-                canvas.height = 1080;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, 1080, 1080);
-                try {
-                    const pngDataUrl = canvas.toDataURL('image/png');
-                    resolve(pngDataUrl);
-                } catch (e) {
-                    resolve(svgDataUrl);
-                }
-            };
-            img.onerror = () => resolve(svgDataUrl);
-            img.src = svgDataUrl;
-        });
+    // Direct HTML5 Canvas 2D Graphic Banner Generator with native Bengali Font rendering
+    function drawAIPostBannerCanvas(cardData) {
+        if (!cardData) return '';
+        const canvas = document.createElement('canvas');
+        canvas.width = 1080;
+        canvas.height = 1080;
+        const ctx = canvas.getContext('2d');
+
+        const palettes = [
+            { bgStart: '#0f172a', bgMid: '#1e1b4b', bgEnd: '#31104b', cardBg: 'rgba(15, 23, 42, 0.9)', badgeBg: 'rgba(99, 102, 241, 0.3)', badgeText: '#a5b4fc', gold1: '#fbbf24', gold2: '#f59e0b', sub: '#cbd5e1' },
+            { bgStart: '#18002e', bgMid: '#3b0764', bgEnd: '#1e1b4b', cardBg: 'rgba(24, 0, 46, 0.9)', badgeBg: 'rgba(217, 70, 239, 0.3)', badgeText: '#f5d0fe', gold1: '#38bdf8', gold2: '#0284c7', sub: '#e9d5ff' },
+            { bgStart: '#022c22', bgMid: '#064e3b', bgEnd: '#0f172a', cardBg: 'rgba(2, 44, 34, 0.9)', badgeBg: 'rgba(16, 185, 129, 0.3)', badgeText: '#a7f3d0', gold1: '#fde047', gold2: '#d97706', sub: '#ecfdf5' },
+            { bgStart: '#4c0519', bgMid: '#881337', bgEnd: '#2e1065', cardBg: 'rgba(76, 5, 25, 0.9)', badgeBg: 'rgba(244, 63, 94, 0.3)', badgeText: '#fecdd3', gold1: '#fef08a', gold2: '#f59e0b', sub: '#ffe4e6' }
+        ];
+        const theme = palettes[Math.floor(Math.random() * palettes.length)];
+
+        // 1. Background Gradient
+        const bgGlow = ctx.createLinearGradient(0, 0, 1080, 1080);
+        bgGlow.addColorStop(0, theme.bgStart);
+        bgGlow.addColorStop(0.5, theme.bgMid);
+        bgGlow.addColorStop(1, theme.bgEnd);
+        ctx.fillStyle = bgGlow;
+        ctx.fillRect(0, 0, 1080, 1080);
+
+        // 2. Glassmorphic Card Frame
+        ctx.fillStyle = theme.cardBg;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(70, 70, 940, 940, 36);
+        else ctx.rect(70, 70, 940, 940);
+        ctx.fill();
+        ctx.stroke();
+
+        // 3. Category Badge
+        ctx.fillStyle = theme.badgeBg;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(120, 130, 340, 64, 32);
+        else ctx.rect(120, 130, 340, 64);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = theme.badgeText;
+        ctx.font = 'bold 26px "Hind Siliguri", "Segoe UI", Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(cardData.badgeText || '✨ DAILY UPDATE', 290, 172);
+
+        // 4. Bengali Title Lines (Drawn directly on Canvas 2D context)
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 44px "Hind Siliguri", "Segoe UI", Arial, sans-serif';
+        if (cardData.line1) ctx.fillText(cardData.line1, 540, 340);
+        if (cardData.line2) ctx.fillText(cardData.line2, 540, 420);
+
+        // Line 3 Highlight
+        const goldGrad = ctx.createLinearGradient(300, 0, 780, 0);
+        goldGrad.addColorStop(0, theme.gold1);
+        goldGrad.addColorStop(1, theme.gold2);
+        ctx.fillStyle = goldGrad;
+        ctx.font = 'bold 44px "Hind Siliguri", "Segoe UI", Arial, sans-serif';
+        if (cardData.line3) ctx.fillText(cardData.line3, 540, 500);
+
+        // Decorative Line
+        ctx.strokeStyle = theme.gold1;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(420, 600);
+        ctx.lineTo(660, 600);
+        ctx.stroke();
+
+        // SubText
+        ctx.fillStyle = theme.sub;
+        ctx.font = '28px "Hind Siliguri", "Segoe UI", Arial, sans-serif';
+        if (cardData.subText) ctx.fillText(cardData.subText, 540, 700);
+
+        // Brand Footer
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 24px "Hind Siliguri", "Segoe UI", Arial, sans-serif';
+        ctx.fillText('✨ FAMILY\'S POST', 540, 930);
+
+        return canvas.toDataURL('image/png');
     }
 
     // Generate AI Post & Media Preview (Preview First!)
@@ -203,10 +261,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     postText.value = data.postText;
                     previewTextDisplay.textContent = data.postText;
 
-                    if (data.mediaUrl) {
-                        const pngDataUrl = await convertSvgToPngDataUrl(data.mediaUrl);
-                        postMediaUrl.value = pngDataUrl;
-                        updateMediaPreview(pngDataUrl);
+                    let pngUrl = '';
+                    if (data.cardData) {
+                        pngUrl = drawAIPostBannerCanvas(data.cardData);
+                    } else if (data.mediaUrl) {
+                        pngUrl = await convertSvgToPngDataUrl(data.mediaUrl);
+                    }
+
+                    if (pngUrl) {
+                        postMediaUrl.value = pngUrl;
+                        updateMediaPreview(pngUrl);
                     }
 
                     showToast('AI Post & Media Preview generated! Review & click Publish when ready.');
