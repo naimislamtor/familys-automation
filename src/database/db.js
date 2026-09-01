@@ -50,6 +50,23 @@ function writeCollection(collection, data) {
 
 // Helper methods
 const db = {
+    // Conversation Memory (Last 10 messages per user/senderId)
+    getConversationHistory: (senderId, limit = 10) => {
+        if (!senderId) return [];
+        const historyStore = readCollection('conversations', {});
+        const senderHistory = historyStore[senderId] || [];
+        return limit ? senderHistory.slice(-limit) : senderHistory;
+    },
+    addConversationMessage: (senderId, role, text) => {
+        if (!senderId || !text) return;
+        const historyStore = readCollection('conversations', {});
+        const senderHistory = historyStore[senderId] || [];
+        senderHistory.push({ role, text, timestamp: new Date().toISOString() });
+        if (senderHistory.length > 10) senderHistory.shift(); // Keep last 10 messages
+        historyStore[senderId] = senderHistory;
+        writeCollection('conversations', historyStore);
+    },
+
     // Posts
     getPosts: (limit = 20) => {
         const posts = readCollection('posts', []);
@@ -76,24 +93,12 @@ const db = {
     // Rules
     getRules: () => readCollection('rules', [
         {
-            id: 'rule_default_price',
-            keyword: 'price',
-            matchType: 'contains',
-            actions: {
-                reaction: 'LIKE',
-                publicReply: 'Hello! Check your inbox for price & order details. Thanks!',
-                privateDM: 'Hi! Our starting price is $25. Would you like to place an order?',
-                aiEnabled: false
-            },
-            active: true
-        },
-        {
             id: 'rule_ai_fallback',
             keyword: '*',
             matchType: 'fallback',
             actions: {
                 reaction: 'LOVE',
-                publicReply: 'Thank you for reaching out! We sent you a DM.',
+                publicReply: '',
                 privateDM: '',
                 aiEnabled: true
             },
@@ -154,7 +159,7 @@ const db = {
             whatsappToken: (saved.whatsappToken && saved.whatsappToken.trim()) || process.env.WHATSAPP_TOKEN || '',
             whatsappPhoneId: (saved.whatsappPhoneId && saved.whatsappPhoneId.trim()) || process.env.WHATSAPP_PHONE_ID || '',
             geminiApiKey: (saved.geminiApiKey && saved.geminiApiKey.trim()) || process.env.GEMINI_API_KEY || '',
-            systemPrompt: (saved.systemPrompt && saved.systemPrompt.trim()) || process.env.SYSTEM_PROMPT || 'You are an intelligent social media customer support AI assistant for our business. Answer customer questions politely, concisely (under 3 sentences), and guide them to order or contact us for details.',
+            systemPrompt: (saved.systemPrompt && saved.systemPrompt.trim()) || process.env.SYSTEM_PROMPT || 'আপনি "Family\'s" ইসলামী পেজের একজন অত্যন্ত বিজ্ঞ, মার্জিত, সহানুভূতির অধিকারী এবং স্মার্ট ইসলামিক এআই অ্যাসিস্ট্যান্ট। পবিত্র কুরআনের যেকোনো আয়াতের বাংলা অনুবাদ, হাদিস বা ইসলামিক প্রশ্নের নির্ভুল উত্তর বাংলায় চমৎকার ২-৩ লাইনে দেবেন।',
             webhookVerifyToken: (saved.webhookVerifyToken && saved.webhookVerifyToken.trim()) || process.env.WEBHOOK_VERIFY_TOKEN || 'antigravity_secret_token_123',
             aiCronEnabled: saved.aiCronEnabled || false,
             aiCronTime: saved.aiCronTime || '10:00',

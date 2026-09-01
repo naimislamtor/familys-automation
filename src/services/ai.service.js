@@ -9,15 +9,6 @@ const GEMINI_MODELS = [
     'gemini-3.1-flash-lite'
 ];
 
-const ISLAMIC_QURAN_SYSTEM_PROMPT = `আপনি "Family's" ইসলামী পেজের একজন অত্যন্ত বিজ্ঞ, মার্জিত, সহানুভূতির অধিকারী এবং স্মার্ট ইসলামিক এআই অ্যাসিস্ট্যান্ট।
-
-আপনার মূল দায়িত্ব:
-১. ইউজার যদি পবিত্র কুরআনের কোনো আয়াত (Ayah), সূরা (Surah) বা আয়াতের বাংলা অর্থ/ব্যাখ্যা জানতে চায়—তবে আপনি কুরআন থেকে সরাসরি সেই আয়াতের নির্ভুল বাংলা অনুবাদ ও শিক্ষা খুব সুন্দর করে ২-৩ লাইনে উত্তর দেবেন।
-২. ইউজার যদি কোনো হাদিস, ইসলামিক মাসআলা, নসিহত বা ধর্মীয় প্রশ্ন জিজ্ঞেস করে—তার সঠিক ও নির্ভরযোগ্য ইসলামী জবাব দেবেন।
-৩. ইউজার যদি সাধারণ কুশলাদি বিনিময় করে—আপনি সুন্নতি ইসলামী সালাম ও ভালোবাসাপূর্ণ সম্ভাষণ দেবেন।
-৪. উত্তর সবসময় খাঁটি বাংলায় অত্যন্ত মার্জিত, হৃদয়গ্রাহী ও স্পষ্টভাষায় দেবেন।
-৫. কোনো পণ্য বিক্রি, অর্ডার বা দোকানের কথা কখনোই বলবেন না।`;
-
 /**
  * Islamic Quran & Contextual Fallback Knowledge Engine
  */
@@ -59,9 +50,9 @@ function getSmartQuranicAIReply(userMessage) {
 }
 
 /**
- * Smart Islamic Quran AI Auto-Response Generator using Google Gemini API
+ * Smart Islamic Quran AI Auto-Response Generator using Google Gemini API & Multi-Turn History
  */
-async function generateAIReply(userMessage, context = 'Islamic Quran & Knowledge Assistant') {
+async function generateAIReply(userMessage, context = 'Islamic Quran & Knowledge Assistant', senderId = null) {
     const settings = db.getSettings();
     
     // Resolves Gemini API Key from database settings or Vercel process.env variables
@@ -69,34 +60,78 @@ async function generateAIReply(userMessage, context = 'Islamic Quran & Knowledge
         ? settings.geminiApiKey.trim()
         : (process.env.GEMINI_API_KEY || process.env.GEMINI_KEY || process.env.GOOGLE_API_KEY || '');
 
+    // Fetch conversation history (last 10 messages for this sender)
+    const history = senderId ? db.getConversationHistory(senderId, 10) : [];
+    const isFirstMessage = (history.length === 0);
+
+    let greetingInstruction = isFirstMessage
+        ? "১. ইউজারের এটি ১ম বার্তা। বার্তার শুরুতে সুন্দর ইসলামী সালাম ও নাম/জেন্ডার সম্মানসূচক সম্বোধন (যেমন: 'আসসালামু আলাইকুম [নাম] ভাই/আপু!') দেবেন।"
+        : "১. ইউজারের সাথে পূর্বে থেকেই বার্তা বিনিময় চলছে (Follow-up Message)। বারবার সালাম দেওয়ার কোনো প্রয়োজন নেই, সরাসরি প্রাকৃতিভাবে উত্তর দিন।";
+
+    const systemPromptText = `আপনি "Family's" ইসলামী পেজের একজন অত্যন্ত বিজ্ঞ, মার্জিত, সহানুভূতির অধিকারী এবং স্মার্ট ইসলামিক এআই অ্যাসিস্ট্যান্ট।
+
+আপনার মূল দায়িত্ব:
+${greetingInstruction}
+২. ইউজার যদি পবিত্র কুরআনের কোনো আয়াত (Ayah), সূরা (Surah) বা আয়াতের বাংলা অর্থ/ব্যাখ্যা জানতে চায়—তবে আপনি কুরআন থেকে সরাসরি সেই আয়াতের নির্ভুল বাংলা অনুবাদ ও শিক্ষা খুব সুন্দর করে ২-৩ লাইনে উত্তর দেবেন।
+৩. ইউজার যদি কোনো হাদিস, ইসলামিক মাসআলা, নসিহত বা ধর্মীয় প্রশ্ন জিজ্ঞেস করে—তার সঠিক ও নির্ভরযোগ্য ইসলামী জবাব দেবেন।
+৪. পূর্ববর্তী ১০টি বার্তার প্রেক্ষাপট (Context) স্মরণ রেখে ইউজার যদি আগের কথার ধারাবাহিকতায় কিছু জানতে চায়, তবে পূর্ববর্তী আলোচনার সাথে মিলিয়ে উত্তর দেবেন।
+৫. উত্তর সবসময় খাঁটি বাংলায় অত্যন্ত মার্জিত, হৃদয়গ্রাহী ও স্পষ্টভাষায় দেবেন।
+৬. কোনো পণ্য বিক্রি, অর্ডার বা দোকানের কথা কখনোই বলবেন না।`;
+
+    const userPromptText = `Additional Context: ${context}\nUser Request: "${userMessage}"`;
+
+    // Format Multi-Turn Conversation History for Gemini API
+    const formattedHistory = history.map(item => ({
+        role: item.role === 'user' ? 'user' : 'model',
+        parts: [{ text: item.text }]
+    }));
+
+    const contents = [
+        { role: 'user', parts: [{ text: systemPromptText }] },
+        ...formattedHistory,
+        { role: 'user', parts: [{ text: userPromptText }] }
+    ];
+
     // 1. If no API key set anywhere, return Quranic Fallback Response
     if (!apiKey) {
         console.log('[AI Service] Gemini API Key not found in settings or process.env. Using Islamic Quranic Knowledge Engine.');
-        return getSmartQuranicAIReply(userMessage);
+        const fallbackReply = getSmartQuranicAIReply(userMessage);
+        if (senderId) {
+            db.addConversationMessage(senderId, 'user', userMessage);
+            db.addConversationMessage(senderId, 'model', fallbackReply);
+        }
+        return fallbackReply;
     }
 
-    // 2. Call Google Gemini API with Islamic Quran System Prompt
-    const customSystemPrompt = settings.systemPrompt || ISLAMIC_QURAN_SYSTEM_PROMPT;
-    const prompt = `System Role & Knowledge Base:\n${customSystemPrompt}\n\nAdditional Context: ${context}\nUser Request: "${userMessage}"\n\nResponse Guidelines:\n- If the user asks for a Quran verse/Ayah/Surah translation, provide the exact accurate Bengali translation of that Ayah in 2-3 lines.\n- If the user asks an Islamic question, provide a correct, polite Islamic answer in Bengali.\n- Keep response warm, respectful, concise (under 3 sentences).\n- DO NOT mention products, prices, or orders.`;
-
+    // 2. Call Google Gemini API with Multi-Turn History
     for (const modelName of GEMINI_MODELS) {
         try {
             const response = await axios.post(
                 `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
-                { contents: [{ parts: [{ text: prompt }] }] },
+                { contents },
                 { headers: { 'Content-Type': 'application/json' }, timeout: 8000 }
             );
 
             const aiText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (aiText) {
-                return aiText.trim();
+                const trimmedText = aiText.trim();
+                if (senderId) {
+                    db.addConversationMessage(senderId, 'user', userMessage);
+                    db.addConversationMessage(senderId, 'model', trimmedText);
+                }
+                return trimmedText;
             }
         } catch (error) {
             console.log(`[AI Service Notice] Model ${modelName} notice:`, error?.response?.data?.error?.message || error.message);
         }
     }
 
-    return getSmartQuranicAIReply(userMessage);
+    const fallbackReply = getSmartQuranicAIReply(userMessage);
+    if (senderId) {
+        db.addConversationMessage(senderId, 'user', userMessage);
+        db.addConversationMessage(senderId, 'model', fallbackReply);
+    }
+    return fallbackReply;
 }
 
 module.exports = { generateAIReply };

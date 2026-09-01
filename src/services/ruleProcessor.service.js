@@ -70,13 +70,17 @@ async function processIncomingEvent({ platform, eventType, text, senderId, comme
     let finalPrivateDM = privateDM || '';
 
     if (aiEnabled) {
-        const aiResponse = await generateAIReply(text);
-        if (!finalPublicReply) finalPublicReply = aiResponse;
-        if (!finalPrivateDM) finalPrivateDM = aiResponse;
+        const aiResponse = await generateAIReply(text, 'Islamic Quran & Knowledge Assistant', senderId);
+        finalPublicReply = aiResponse;
+        finalPrivateDM = aiResponse;
     }
 
-    if (finalPublicReply) finalPublicReply = formatGenderAwareSalam(finalPublicReply);
-    if (finalPrivateDM) finalPrivateDM = formatGenderAwareSalam(finalPrivateDM);
+    const history = senderId ? db.getConversationHistory(senderId, 10) : [];
+    // Only prepend Salam on the very first message of a conversation session
+    if (history.length <= 2) {
+        if (finalPublicReply) finalPublicReply = formatGenderAwareSalam(finalPublicReply);
+        if (finalPrivateDM) finalPrivateDM = formatGenderAwareSalam(finalPrivateDM);
+    }
 
     // Execute Actions based on Event Type & Platform
     try {
