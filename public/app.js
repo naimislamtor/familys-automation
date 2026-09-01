@@ -399,12 +399,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     const platformBadges = Object.keys(post.results || {}).length > 0
-                        ? Object.keys(post.results).map(p => `
-                            <span class="badge-status ${post.results[p].success ? 'badge-success' : 'badge-failed'}">
-                                ${p}: ${post.results[p].success ? 'OK' : 'Failed'}
-                            </span>
-                        `).join(' ')
-                        : (post.targetPlatforms || []).map(p => `<span class="badge-status badge-skipped">${p}</span>`).join(' ');
+                        ? Object.keys(post.results).map(p => {
+                            const res = post.results[p];
+                            if (res.success) {
+                                return `<span class="badge-status badge-success" style="background:#10b981; color:#fff; padding:3px 8px; border-radius:12px; font-size:12px; font-weight:600;"><i class="fa-solid fa-check"></i> ${p.toUpperCase()}: OK</span>`;
+                            } else if (res.reason && res.reason.includes('Missing')) {
+                                return `<span class="badge-status badge-skipped" style="background:#64748b; color:#fff; padding:3px 8px; border-radius:12px; font-size:12px; font-weight:600;"><i class="fa-solid fa-ban"></i> ${p.toUpperCase()}: Skipped (No Token)</span>`;
+                            } else {
+                                return `<span class="badge-status badge-failed" style="background:#ef4444; color:#fff; padding:3px 8px; border-radius:12px; font-size:12px; font-weight:600;"><i class="fa-solid fa-xmark"></i> ${p.toUpperCase()}: ${res.error || 'Failed'}</span>`;
+                            }
+                        }).join(' ')
+                        : (post.targetPlatforms || []).map(p => `<span class="badge-status badge-skipped" style="background:#64748b; color:#fff; padding:3px 8px; border-radius:12px; font-size:12px; font-weight:600;">${p}: Pending</span>`).join(' ');
 
                     return `
                         <tr>
