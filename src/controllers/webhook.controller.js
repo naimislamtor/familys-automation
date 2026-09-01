@@ -1,6 +1,90 @@
 const db = require('../database/db');
 const { processIncomingEvent } = require('../services/ruleProcessor.service');
 
+// Asynchronous background processor for Meta Webhooks
+async function processMetaEventAsync(body) {
+    if (!body) return;
+
+    db.addLog('WEBHOOK', 'FACEBOOK', `Webhook payload: ${JSON.stringify(body).substring(0, 160)}`);
+
+    // 1. Handle Meta Console Test Button Payloads ({ sample: { field: "messages", value: ... } })
+    if (body.sample) {
+        const sampleField = body.sample.field;
+        const value = body.sample.value;
+
+        if (sampleField === 'messages' && value) {
+            const senderId = value.sender?.id || '12345';
+            const messageText = value.message?.text || 'test_message';
+            db.addLog('WEBHOOK_TEST', 'FACEBOOK', `Meta Console Test Message received from ${senderId}: "${messageText}"`);
+            await processIncomingEvent({
+                platform: 'FACEBOOK',
+                eventType: 'DIRECT_MESSAGE',
+                text: messageText,
+                senderId
+            });
+        }
+        return;
+    }
+
+    // 2. Handle Live Webhook Payloads (body.entry, body.object)
+    const platform = (body.object === 'instagram') ? 'INSTAGRAM' : 'FACEBOOK';
+
+    if (!body.entry || !Array.isArray(body.entry)) return;
+
+    for (const entry of body.entry) {
+        // Handle Messaging (DMs, Quick Replies & Postbacks)
+        const messagingList = entry.messaging || entry.standby;
+        if (messagingList && Array.isArray(messagingList)) {
+            for (const messagingEvent of messagingList) {
+                // Ignore self-echoes sent by the Page itself
+                if (messagingEvent.message?.is_echo) continue;
+
+                const senderId = messagingEvent.sender?.id;
+                const messageText = messagingEvent.message?.text 
+                    || messagingEvent.message?.quick_reply?.payload 
+                    || messagingEvent.postback?.title 
+                    || messagingEvent.postback?.payload 
+                    || 'hello';
+
+                if (senderId && messageText) {
+                    await processIncomingEvent({
+                        platform,
+                        eventType: 'DIRECT_MESSAGE',
+                        text: messageText,
+                        senderId
+                    });
+                }
+            }
+        }
+
+        // Handle Changes (Feed Comments)
+        if (entry.changes && Array.isArray(entry.changes)) {
+            for (const change of entry.changes) {
+                const value = change.value;
+                if (!value) continue;
+
+                if (change.field === 'feed' || change.field === 'comments') {
+                    if (value.item === 'comment' && (value.verb === 'add' || !value.verb)) {
+                        const commentId = value.comment_id || value.id;
+                        const commentText = value.message;
+                        const senderId = value.from?.id;
+
+                        if (commentId && commentText) {
+                            await processIncomingEvent({
+                                platform,
+                                eventType: 'COMMENT',
+                                text: commentText,
+                                senderId,
+                                commentId
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /**
  * Webhook Handlers for Meta (Facebook & Instagram), Telegram, and WhatsApp
  */
@@ -23,87 +107,20 @@ const webhookController = {
         return res.sendStatus(400);
     },
 
-    // 2. Meta (FB & IG) Webhook Event Handler (Supports both Live Events and Meta Console Test Buttons)
+    // 2. Meta (FB & IG) Webhook Event Handler (Instant HTTP 200 OK + Decoupled Async Processing)
     handleMetaWebhook: (req, res) => {
         const body = req.body;
-        console.log('[Meta Webhook Received Event]:', JSON.stringify(body));
 
-        // Always acknowledge Meta Webhook immediately with HTTP 200 OK
+        // Step 1: Immediately acknowledge Meta in 0.001s to prevent Meta timeouts & retries
         res.status(200).send('EVENT_RECEIVED');
 
-        if (!body) return;
-
-        db.addLog('WEBHOOK', 'FACEBOOK', `Webhook payload: ${JSON.stringify(body).substring(0, 160)}`);
-
-        // 1. Handle Meta Console Test Button Payloads ({ sample: { field: "messages", value: ... } })
-        if (body.sample) {
-            const sampleField = body.sample.field;
-            const value = body.sample.value;
-
-            if (sampleField === 'messages' && value) {
-                const senderId = value.sender?.id || '12345';
-                const messageText = value.message?.text || 'test_message';
-                db.addLog('WEBHOOK_TEST', 'FACEBOOK', `Meta Console Test Message received from ${senderId}: "${messageText}"`);
-                processIncomingEvent({
-                    platform: 'FACEBOOK',
-                    eventType: 'DIRECT_MESSAGE',
-                    text: messageText,
-                    senderId
-                });
+        // Step 2: Process event asynchronously in background
+        setImmediate(async () => {
+            try {
+                await processMetaEventAsync(body);
+            } catch (err) {
+                console.error('[Meta Webhook Async Error]:', err.message);
             }
-            return;
-        }
-
-        // 2. Handle Live Webhook Payloads (body.entry, body.object)
-        const platform = (body.object === 'instagram') ? 'INSTAGRAM' : 'FACEBOOK';
-
-        body.entry?.forEach(entry => {
-            // Handle Messaging (DMs, Quick Replies & Postbacks)
-            const messagingList = entry.messaging || entry.standby;
-            messagingList?.forEach(messagingEvent => {
-                // Ignore only true self-echoes
-                if (messagingEvent.message?.is_echo) return;
-
-                const senderId = messagingEvent.sender?.id;
-                const messageText = messagingEvent.message?.text 
-                    || messagingEvent.message?.quick_reply?.payload 
-                    || messagingEvent.postback?.title 
-                    || messagingEvent.postback?.payload 
-                    || 'hello';
-
-                if (senderId && messageText) {
-                    processIncomingEvent({
-                        platform,
-                        eventType: 'DIRECT_MESSAGE',
-                        text: messageText,
-                        senderId
-                    });
-                }
-            });
-
-            // Handle Changes (Feed Comments)
-            entry.changes?.forEach(change => {
-                const value = change.value;
-                if (!value) return;
-
-                if (change.field === 'feed' || change.field === 'comments') {
-                    if (value.item === 'comment' && (value.verb === 'add' || !value.verb)) {
-                        const commentId = value.comment_id || value.id;
-                        const commentText = value.message;
-                        const senderId = value.from?.id;
-
-                        if (commentId && commentText) {
-                            processIncomingEvent({
-                                platform,
-                                eventType: 'COMMENT',
-                                text: commentText,
-                                senderId,
-                                commentId
-                            });
-                        }
-                    }
-                }
-            });
         });
     },
 
