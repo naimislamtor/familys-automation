@@ -63,11 +63,15 @@ function getSmartQuranicAIReply(userMessage) {
  */
 async function generateAIReply(userMessage, context = 'Islamic Quran & Knowledge Assistant') {
     const settings = db.getSettings();
-    const apiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY;
+    
+    // Resolves Gemini API Key from database settings or Vercel process.env variables
+    const apiKey = (settings.geminiApiKey && settings.geminiApiKey.trim())
+        ? settings.geminiApiKey.trim()
+        : (process.env.GEMINI_API_KEY || process.env.GEMINI_KEY || process.env.GOOGLE_API_KEY || '');
 
-    // 1. If no API key set, return Quranic Fallback Response
+    // 1. If no API key set anywhere, return Quranic Fallback Response
     if (!apiKey) {
-        console.log('[AI Service] Gemini API Key not set. Using Islamic Quranic Knowledge Engine.');
+        console.log('[AI Service] Gemini API Key not found in settings or process.env. Using Islamic Quranic Knowledge Engine.');
         return getSmartQuranicAIReply(userMessage);
     }
 
