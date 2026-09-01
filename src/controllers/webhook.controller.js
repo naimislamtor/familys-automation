@@ -107,21 +107,17 @@ const webhookController = {
         return res.sendStatus(400);
     },
 
-    // 2. Meta (FB & IG) Webhook Event Handler (Instant HTTP 200 OK + Decoupled Async Processing)
-    handleMetaWebhook: (req, res) => {
+    // 2. Meta (FB & IG) Webhook Event Handler (Guaranteed Synchronous Vercel Execution)
+    handleMetaWebhook: async (req, res) => {
         const body = req.body;
 
-        // Step 1: Immediately acknowledge Meta in 0.001s to prevent Meta timeouts & retries
-        res.status(200).send('EVENT_RECEIVED');
+        try {
+            await processMetaEventAsync(body);
+        } catch (err) {
+            console.error('[Meta Webhook Error]:', err.message);
+        }
 
-        // Step 2: Process event asynchronously in background
-        setImmediate(async () => {
-            try {
-                await processMetaEventAsync(body);
-            } catch (err) {
-                console.error('[Meta Webhook Async Error]:', err.message);
-            }
-        });
+        return res.status(200).send('EVENT_RECEIVED');
     },
 
     // 3. Telegram Webhook Event Handler
