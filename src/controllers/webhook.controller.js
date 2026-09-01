@@ -24,9 +24,16 @@ const webhookController = {
     },
 
     // 2. Meta (FB & IG) Webhook Event Handler
-    handleMetaWebhook: async (req, res) => {
+    handleMetaWebhook: (req, res) => {
         const body = req.body;
-        db.addLog('WEBHOOK', 'FACEBOOK', `Meta Event Payload received: ${JSON.stringify(body).substring(0, 150)}...`);
+        console.log('[Meta Webhook Received Event]:', JSON.stringify(body));
+
+        // Always acknowledge Meta Webhook immediately with HTTP 200 OK
+        res.status(200).send('EVENT_RECEIVED');
+
+        if (!body) return;
+
+        db.addLog('WEBHOOK', 'FACEBOOK', `Webhook event payload received: ${JSON.stringify(body).substring(0, 150)}`);
 
         if (body.object === 'page' || body.object === 'instagram') {
             const isInstagram = body.object === 'instagram';
