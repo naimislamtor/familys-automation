@@ -185,16 +185,20 @@ const facebookService = {
         const activeToken = await getActivePageToken(fbPageToken, fbPageId);
         if (!activeToken) return;
 
+        const targetEndpoint = (fbPageId && fbPageId.trim()) ? `${GRAPH_BASE_URL}/${fbPageId.trim()}/messages` : `${GRAPH_BASE_URL}/me/messages`;
+
         try {
-            await axios.post(`${GRAPH_BASE_URL}/me/messages`, {
+            const response = await axios.post(targetEndpoint, {
                 recipient: { id: recipientPsid },
                 message: { text: textMessage },
                 access_token: activeToken
             });
-            db.addLog('DM_REPLY', 'FACEBOOK', `Messenger DM sent to recipient PSID: ${recipientPsid}`);
+            const msgId = response.data?.message_id || 'OK';
+            db.addLog('DM_REPLY', 'FACEBOOK', `Messenger DM sent to recipient PSID: ${recipientPsid} (Msg ID: ${msgId})`);
         } catch (error) {
+            const errDetail = error.response?.data?.error?.message || error.message;
             console.error('[FB DM Error]:', error.response?.data || error.message);
-            db.addLog('DM_REPLY', 'FACEBOOK', `Messenger DM failed: ${error.message}`, 'failed');
+            db.addLog('DM_REPLY', 'FACEBOOK', `Messenger DM failed: ${errDetail}`, 'failed');
         }
     }
 };
