@@ -304,11 +304,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnPublish = document.getElementById('btn-publish-now');
     btnPublish.addEventListener('click', async () => {
         const message = postText.value.trim();
-        const mediaUrl = postMediaUrl.value.trim();
+        let mediaUrl = postMediaUrl.value.trim();
         const selectedPlatforms = Array.from(document.querySelectorAll('#tab-composer input[name="platform"]:checked')).map(cb => cb.value);
 
         const timing = postTimingOption ? postTimingOption.value : 'NOW';
         const scheduleTime = document.getElementById('post-schedule-datetime')?.value;
+
+        // Auto-convert SVG Data URL into real 1080x1080 PNG Data URL in browser before submitting!
+        if (mediaUrl && mediaUrl.startsWith('data:image/svg+xml')) {
+            btnPublish.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Rendering PNG Card...';
+            mediaUrl = await convertSvgToPngDataUrl(mediaUrl);
+        }
 
         if (!message) {
             showToast('Please enter a caption message before publishing.', 'error');
