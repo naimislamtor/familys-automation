@@ -1,0 +1,51 @@
+<svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="goldText" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="1080" height="1080" fill="url(#bgGlow)"/>
+  <image href="https://image.pollinations.ai/prompt/cinematic%20photograph%20of%20two%20boys%20playing%20football%20field%20sunset%2C%20high%20resolution%208k%20wallpaper%20background%2C%20photographic%20style%2C%20no%20humans%2C%20no%20anime%2C%20no%20cartoon%2C%20no%20text?width=1080&height=1080&seed=2189880&model=flux&nologo=true" x="0" y="0" width="1080" height="1080" preserveAspectRatio="xMidYMid slice" opacity="0.38"/>
+  <rect width="1080" height="1080" fill="url(#bgGlow)" opacity="0.6"/>
+
+  <!-- Glassmorphic Central Graphic Card -->
+  <rect x="70" y="70" width="940" height="940" rx="36" fill="rgba(15, 23, 42, 0.78)" stroke="rgba(255, 255, 255, 0.18)" stroke-width="3"/>
+
+  <!-- Category Badge -->
+  <rect x="120" y="130" width="340" height="64" rx="32" fill="rgba(99, 102, 241, 0.25)" stroke="rgba(129, 140, 248, 0.4)" stroke-width="2"/>
+  <text x="290" y="172" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="bold" fill="#818cf8" text-anchor="middle">
+    ⚽ শৈশবের স্মৃতি
+  </text>
+
+  <!-- Main Bengali Title Lines -->
+  <text x="540" y="340" font-family="'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="46" font-weight="bold" fill="#ffffff" text-anchor="middle">
+    সবুজ মাঠে বাঁধভাঙা আনন্দ
+  </text>
+  <text x="540" y="420" font-family="'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="44" font-weight="bold" fill="#ffffff" text-anchor="middle">
+    শৈশবের ফুটবল খেলার অনাবিল সুখ
+  </text>
+  <text x="540" y="500" font-family="'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="44" font-weight="bold" fill="url(#goldText)" text-anchor="middle">
+    স্মৃতিগুলো আজও বড্ড জীবন্ত!
+  </text>
+
+  <!-- Gold Decorative Line -->
+  <line x1="420" y1="600" x2="660" y2="600" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Subtitle reflection -->
+  <text x="540" y="700" font-family="'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="30" fill="#cbd5e1" text-anchor="middle">
+    বন্ধুত্ব আর খেলার মাঠের সেই সেরা দিনগুলো
+  </text>
+
+  <!-- Footer Brand -->
+  <text x="540" y="930" font-family="system-ui, sans-serif" font-size="22" font-weight="600" fill="#64748b" text-anchor="middle" letter-spacing="4">
+    ✨ SOCIAL MEDIA AUTOMATION HUB
+  </text>
+</svg>
