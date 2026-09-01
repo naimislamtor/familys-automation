@@ -262,7 +262,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     previewTextDisplay.textContent = data.postText;
 
                     let pngUrl = '';
-                    if (data.cardData) {
+                    if (data.mediaUrl && data.mediaUrl.startsWith('http')) {
+                        pngUrl = data.mediaUrl;
+                    } else if (data.cardData) {
                         pngUrl = drawAIPostBannerCanvas(data.cardData);
                     } else if (data.mediaUrl) {
                         pngUrl = await convertSvgToPngDataUrl(data.mediaUrl);
