@@ -154,6 +154,32 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMediaPreview(postMediaUrl.value.trim());
     });
 
+    // Helper: Convert SVG Data URL to high-res 1080x1080 PNG Data URL in browser canvas
+    function convertSvgToPngDataUrl(svgDataUrl) {
+        return new Promise((resolve) => {
+            if (!svgDataUrl || !svgDataUrl.startsWith('data:image/svg+xml')) {
+                return resolve(svgDataUrl);
+            }
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 1080;
+                canvas.height = 1080;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, 1080, 1080);
+                try {
+                    const pngDataUrl = canvas.toDataURL('image/png');
+                    resolve(pngDataUrl);
+                } catch (e) {
+                    resolve(svgDataUrl);
+                }
+            };
+            img.onerror = () => resolve(svgDataUrl);
+            img.src = svgDataUrl;
+        });
+    }
+
     // Generate AI Post & Media Preview (Preview First!)
     const btnGenerateAiPreview = document.getElementById('btn-generate-ai-preview');
     const aiGeneratorPrompt = document.getElementById('ai-generator-prompt');
@@ -178,8 +204,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     previewTextDisplay.textContent = data.postText;
 
                     if (data.mediaUrl) {
-                        postMediaUrl.value = data.mediaUrl;
-                        updateMediaPreview(data.mediaUrl);
+                        const pngDataUrl = await convertSvgToPngDataUrl(data.mediaUrl);
+                        postMediaUrl.value = pngDataUrl;
+                        updateMediaPreview(pngDataUrl);
                     }
 
                     showToast('AI Post & Media Preview generated! Review & click Publish when ready.');
