@@ -77,9 +77,9 @@ app.post('/api/settings', rulesController.saveSettings);
 
 app.get('/api/logs', rulesController.getLogs);
 
-// Webhook Routes (Meta - FB & IG)
-app.get('/api/webhook/meta', webhookController.verifyMetaWebhook);
-app.post('/api/webhook/meta', webhookController.handleMetaWebhook);
+// Webhook Routes (Meta - FB & IG with aliases)
+app.get(['/api/webhook', '/api/webhook/meta'], webhookController.verifyMetaWebhook);
+app.post(['/api/webhook', '/api/webhook/meta'], webhookController.handleMetaWebhook);
 
 // Webhook Routes (Telegram)
 app.post('/api/webhook/telegram', webhookController.handleTelegramWebhook);
