@@ -41,15 +41,39 @@ async function processIncomingEvent({ platform, eventType, text, senderId, comme
 
     const { reaction, publicReply, privateDM, aiEnabled } = matchedRule.actions;
 
-    // Determine final message text (Static vs AI)
-    let finalPublicReply = publicReply;
-    let finalPrivateDM = privateDM;
+    // Format Gender-Aware & Random Islamic Salam Prefix
+    function formatGenderAwareSalam(bodyText, senderName = '', gender = '') {
+        if (!bodyText) return bodyText;
+        const salams = [
+            'আসসালামু আলাইকুম',
+            'আসসালামু আলাইকুম ওয়া রহমাতুল্লাহ',
+            'আসসালামু আলাইকুম ওয়া বারাকাতুহ'
+        ];
+        const randomSalam = salams[Math.floor(Math.random() * salams.length)];
+
+        let honorific = '';
+        const nameLower = (senderName || '').toLowerCase();
+        
+        if (gender === 'male' || nameLower.includes('rahman') || nameLower.includes('islam') || nameLower.includes('khan') || nameLower.includes('ahmed') || nameLower.includes('hassan') || nameLower.includes('ali') || nameLower.includes('choudhury')) {
+            honorific = 'ভাই';
+        } else if (gender === 'female' || nameLower.includes('begum') || nameLower.includes('sultana') || nameLower.includes('akter') || nameLower.includes('jahan') || nameLower.includes('fatema') || nameLower.includes('nusaiba')) {
+            honorific = 'আপু';
+        }
+
+        const title = senderName ? `${senderName} ${honorific}`.trim() : honorific;
+        const prefix = title ? `${randomSalam} ${title}!` : `${randomSalam}!`;
+
+        return `${prefix}\n\n${bodyText}`;
+    }
 
     if (aiEnabled) {
         const aiResponse = await generateAIReply(text);
         if (!finalPublicReply) finalPublicReply = aiResponse;
         if (!finalPrivateDM) finalPrivateDM = aiResponse;
     }
+
+    if (finalPublicReply) finalPublicReply = formatGenderAwareSalam(finalPublicReply);
+    if (finalPrivateDM) finalPrivateDM = formatGenderAwareSalam(finalPrivateDM);
 
     // Execute Actions based on Event Type & Platform
     try {
