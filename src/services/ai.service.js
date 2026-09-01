@@ -44,7 +44,7 @@ async function generateAIReply(userMessage, context = 'Customer Support & Sales'
             const response = await axios.post(
                 `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
                 { contents: [{ parts: [{ text: prompt }] }] },
-                { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+                { headers: { 'Content-Type': 'application/json' }, timeout: 3000 }
             );
 
             const aiText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
