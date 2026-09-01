@@ -63,7 +63,7 @@ const BANNER_COLOR_PALETTES = [
 ];
 
 /**
- * Creates an aesthetic 1080x1080 SVG Social Media Graphic Post Banner with Random Dynamic Colors
+ * Creates an aesthetic 1080x1080 SVG Banner with Embedded Bengali Web Fonts (Hind Siliguri)
  */
 function createAIPostBannerSVG({ line1, line2, line3, subText, badgeText }) {
     const safeLine1 = (line1 || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -77,6 +77,12 @@ function createAIPostBannerSVG({ line1, line2, line3, subText, badgeText }) {
 
     return `<svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
   <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@600;700&amp;display=swap');
+      .bengali-font {
+        font-family: 'Hind Siliguri', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      }
+    </style>
     <linearGradient id="bgGlow" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="${theme.bgStart}"/>
       <stop offset="50%" stop-color="${theme.bgMid}"/>
@@ -101,18 +107,18 @@ function createAIPostBannerSVG({ line1, line2, line3, subText, badgeText }) {
 
   <!-- Category Badge -->
   <rect x="120" y="130" width="340" height="64" rx="32" fill="${theme.badgeBg}" stroke="${theme.badgeBorder}" stroke-width="2"/>
-  <text x="290" y="172" font-family="'DejaVu Sans', sans-serif" font-size="24" font-weight="bold" fill="${theme.badgeText}" text-anchor="middle">
+  <text x="290" y="172" class="bengali-font" font-size="26" font-weight="bold" fill="${theme.badgeText}" text-anchor="middle">
     ${safeBadge}
   </text>
 
   <!-- Main Title Lines -->
-  <text x="540" y="340" font-family="'DejaVu Sans', sans-serif" font-size="44" font-weight="bold" fill="#ffffff" text-anchor="middle">
+  <text x="540" y="340" class="bengali-font" font-size="44" font-weight="bold" fill="#ffffff" text-anchor="middle">
     ${safeLine1}
   </text>
-  <text x="540" y="420" font-family="'DejaVu Sans', sans-serif" font-size="42" font-weight="bold" fill="#ffffff" text-anchor="middle">
+  <text x="540" y="420" class="bengali-font" font-size="42" font-weight="bold" fill="#ffffff" text-anchor="middle">
     ${safeLine2}
   </text>
-  <text x="540" y="500" font-family="'DejaVu Sans', sans-serif" font-size="42" font-weight="bold" fill="url(#goldText)" text-anchor="middle">
+  <text x="540" y="500" class="bengali-font" font-size="42" font-weight="bold" fill="url(#goldText)" text-anchor="middle">
     ${safeLine3}
   </text>
 
@@ -120,12 +126,12 @@ function createAIPostBannerSVG({ line1, line2, line3, subText, badgeText }) {
   <line x1="420" y1="600" x2="660" y2="600" stroke="${theme.strokeColor}" stroke-width="4" stroke-linecap="round"/>
 
   <!-- Subtitle reflection -->
-  <text x="540" y="700" font-family="'DejaVu Sans', sans-serif" font-size="28" fill="${theme.subTextColor}" text-anchor="middle">
+  <text x="540" y="700" class="bengali-font" font-size="28" fill="${theme.subTextColor}" text-anchor="middle">
     ${safeSub}
   </text>
 
   <!-- Footer Brand Header (Custom User Branding) -->
-  <text x="540" y="930" font-family="'DejaVu Sans', sans-serif" font-size="24" font-weight="bold" fill="#94a3b8" text-anchor="middle" letter-spacing="4">
+  <text x="540" y="930" class="bengali-font" font-size="24" font-weight="bold" fill="#94a3b8" text-anchor="middle" letter-spacing="4">
     ✨ FAMILY'S POST
   </text>
 </svg>`;
@@ -212,7 +218,7 @@ Example JSON output:
         cardLine3 = 'সাফল্য আপনারই হবে!';
     }
 
-    // Render 1080x1080 AI Graphic Post Banner SVG Card with Random Palette & "FAMILY'S POST" Footer
+    // Render 1080x1080 AI Graphic Post Banner SVG Card with Google Bengali Fonts (Hind Siliguri)
     const svgCode = createAIPostBannerSVG({
         line1: cardLine1 || cleanTopic,
         line2: cardLine2 || '',
@@ -221,24 +227,8 @@ Example JSON output:
         badgeText: cardBadge || '✨ FAMILY\'S POST'
     });
 
-    // Convert SVG to Base64 Data URL for Vercel/Cloud instant preview + Save PNG file if possible
-    let mediaUrl = `data:image/svg+xml;base64,${Buffer.from(svgCode).toString('base64')}`;
-
-    try {
-        const pngBuffer = await sharp(Buffer.from(svgCode)).png({ quality: 95 }).toBuffer();
-        mediaUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
-
-        // Attempt to save file on disk if environment permits
-        const filename = `ai-card-${Date.now()}.png`;
-        const uploadsDir = process.env.VERCEL ? path.join(require('os').tmpdir(), 'uploads') : path.join(__dirname, '../../public/uploads');
-        if (!fs.existsSync(uploadsDir)) {
-            try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch (e) {}
-        }
-        const filePath = path.join(uploadsDir, filename);
-        await fs.promises.writeFile(filePath, pngBuffer);
-    } catch (sharpErr) {
-        console.error('[Sharp PNG Notice]:', sharpErr.message);
-    }
+    // Return Data URL for instant crystal-clear rendering anywhere
+    const mediaUrl = `data:image/svg+xml;base64,${Buffer.from(svgCode).toString('base64')}`;
 
     return { postText, mediaUrl };
 }
