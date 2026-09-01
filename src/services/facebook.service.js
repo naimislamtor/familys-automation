@@ -189,6 +189,7 @@ const facebookService = {
 
         try {
             const response = await axios.post(targetEndpoint, {
+                messaging_type: 'RESPONSE',
                 recipient: { id: recipientPsid },
                 message: { text: textMessage },
                 access_token: activeToken
