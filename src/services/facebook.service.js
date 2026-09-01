@@ -53,9 +53,25 @@ const facebookService = {
 
         try {
             let response;
+            const isBase64 = mediaUrl && mediaUrl.startsWith('data:image/');
             const isLocalFile = mediaUrl && mediaUrl.startsWith('/uploads/');
 
-            if (isLocalFile) {
+            if (isBase64) {
+                const parts = mediaUrl.split(',');
+                const mimeMatch = parts[0].match(/:(.*?);/);
+                const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+                const buffer = Buffer.from(parts[1], 'base64');
+
+                const form = new FormData();
+                form.append('access_token', activeToken);
+                form.append('source', buffer, { filename: 'ai-banner.png', contentType: mimeType });
+                if (message) form.append('caption', message);
+
+                response = await axios.post(`${GRAPH_BASE_URL}/${fbPageId}/photos`, form, {
+                    headers: form.getHeaders(),
+                    timeout: 35000
+                });
+            } else if (isLocalFile) {
                 const localFilePath = path.join(process.cwd(), 'public', mediaUrl);
                 if (fs.existsSync(localFilePath)) {
                     // Send actual local PNG file stream directly to Facebook Page Graph API
@@ -66,7 +82,7 @@ const facebookService = {
 
                     response = await axios.post(`${GRAPH_BASE_URL}/${fbPageId}/photos`, form, {
                         headers: form.getHeaders(),
-                        timeout: 30000
+                        timeout: 35000
                     });
                 } else {
                     response = await axios.post(`${GRAPH_BASE_URL}/${fbPageId}/feed`, {
