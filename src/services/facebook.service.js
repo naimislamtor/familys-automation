@@ -2,6 +2,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
+const sharp = require('sharp');
 const db = require('../database/db');
 
 const GRAPH_BASE_URL = 'https://graph.facebook.com/v19.0';
@@ -58,13 +59,22 @@ const facebookService = {
 
             if (isBase64) {
                 const parts = mediaUrl.split(',');
-                const mimeMatch = parts[0].match(/:(.*?);/);
-                const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
-                const buffer = Buffer.from(parts[1], 'base64');
+                const base64Data = parts[1];
+                const isSvg = parts[0].includes('svg');
+                let imageBuffer = Buffer.from(base64Data, 'base64');
+                let contentType = isSvg ? 'image/svg+xml' : 'image/png';
+
+                // Convert SVG Buffer to PNG Buffer for Meta Photo API compatibility
+                if (isSvg) {
+                    try {
+                        imageBuffer = await sharp(imageBuffer).png({ quality: 95 }).toBuffer();
+                        contentType = 'image/png';
+                    } catch (sErr) {}
+                }
 
                 const form = new FormData();
                 form.append('access_token', activeToken);
-                form.append('source', buffer, { filename: 'ai-banner.png', contentType: mimeType });
+                form.append('source', imageBuffer, { filename: 'ai-banner.png', contentType });
                 if (message) form.append('caption', message);
 
                 response = await axios.post(`${GRAPH_BASE_URL}/${fbPageId}/photos`, form, {
