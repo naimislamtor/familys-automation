@@ -66,6 +66,9 @@ async function processIncomingEvent({ platform, eventType, text, senderId, comme
         return `${prefix}\n\n${bodyText}`;
     }
 
+    let finalPublicReply = publicReply || '';
+    let finalPrivateDM = privateDM || '';
+
     if (aiEnabled) {
         const aiResponse = await generateAIReply(text);
         if (!finalPublicReply) finalPublicReply = aiResponse;
