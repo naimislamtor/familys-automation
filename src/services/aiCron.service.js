@@ -1,51 +1,57 @@
-const db = require('../database/db');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
+const db = require('../database/db');
 const facebookService = require('./facebook.service');
 const instagramService = require('./instagram.service');
 const telegramService = require('./telegram.service');
 const linkedinService = require('./linkedin.service');
 
-const GEMINI_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite'];
+// Google Gemini Models to try in fallback order
+const GEMINI_MODELS = [
+    'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash-lite'
+];
 
-// Curated Aesthetic Color Palettes for Random Theme Selection on Every Post Card
+// Curated Vibrant Modern HSL Social Media Color Palettes
 const BANNER_COLOR_PALETTES = [
-    // 1. Cyber Midnight Indigo & Purple
+    // 1. Deep Midnight Ocean
     {
-        bgStart: '#0f172a', bgMid: '#312e81', bgEnd: '#020617',
+        bgStart: '#0f172a', bgMid: '#1e1b4b', bgEnd: '#31104b',
         badgeBg: 'rgba(99, 102, 241, 0.25)', badgeBorder: 'rgba(129, 140, 248, 0.4)', badgeText: '#a5b4fc',
         cardBg: 'rgba(15, 23, 42, 0.85)', cardBorder: 'rgba(255, 255, 255, 0.18)',
-        goldTextStart: '#fbbf24', goldTextEnd: '#f59e0b', strokeColor: '#f59e0b', subTextColor: '#cbd5e1'
+        goldTextStart: '#fbbf24', goldTextEnd: '#f59e0b', strokeColor: '#fbbf24', subTextColor: '#cbd5e1'
     },
-    // 2. Emerald Forest & Teal Gold
+    // 2. Neon Cyber Purple
     {
-        bgStart: '#064e3b', bgMid: '#022c22', bgEnd: '#065f46',
-        badgeBg: 'rgba(16, 185, 129, 0.25)', badgeBorder: 'rgba(52, 211, 153, 0.4)', badgeText: '#6ee7b7',
-        cardBg: 'rgba(4, 47, 38, 0.85)', cardBorder: 'rgba(255, 255, 255, 0.2)',
-        goldTextStart: '#fde047', goldTextEnd: '#eab308', strokeColor: '#eab308', subTextColor: '#d1fae5'
+        bgStart: '#18002e', bgMid: '#3b0764', bgEnd: '#1e1b4b',
+        badgeBg: 'rgba(217, 70, 239, 0.25)', badgeBorder: 'rgba(240, 171, 252, 0.4)', badgeText: '#f5d0fe',
+        cardBg: 'rgba(24, 0, 46, 0.85)', cardBorder: 'rgba(240, 171, 252, 0.25)',
+        goldTextStart: '#38bdf8', goldTextEnd: '#0284c7', strokeColor: '#38bdf8', subTextColor: '#e9d5ff'
     },
-    // 3. Royal Velvet Rose & Sunset Gold
+    // 3. Royal Emerald Gold
     {
-        bgStart: '#4c0519', bgMid: '#881337', bgEnd: '#1e1b4b',
-        badgeBg: 'rgba(244, 63, 94, 0.25)', badgeBorder: 'rgba(251, 113, 133, 0.4)', badgeText: '#fda4af',
+        bgStart: '#022c22', bgMid: '#064e3b', bgEnd: '#0f172a',
+        badgeBg: 'rgba(16, 185, 129, 0.25)', badgeBorder: 'rgba(110, 231, 183, 0.4)', badgeText: '#a7f3d0',
+        cardBg: 'rgba(2, 44, 34, 0.85)', cardBorder: 'rgba(255, 255, 255, 0.2)',
+        goldTextStart: '#fde047', goldTextEnd: '#d97706', strokeColor: '#fde047', subTextColor: '#ecfdf5'
+    },
+    // 4. Sunset Coral Glow
+    {
+        bgStart: '#4c0519', bgMid: '#881337', bgEnd: '#2e1065',
+        badgeBg: 'rgba(244, 63, 94, 0.25)', badgeBorder: 'rgba(251, 113, 133, 0.4)', badgeText: '#fecdd3',
         cardBg: 'rgba(76, 5, 25, 0.85)', cardBorder: 'rgba(255, 255, 255, 0.2)',
-        goldTextStart: '#fef08a', goldTextEnd: '#f59e0b', strokeColor: '#f59e0b', subTextColor: '#fecdd3'
+        goldTextStart: '#fef08a', goldTextEnd: '#f59e0b', strokeColor: '#fef08a', subTextColor: '#ffe4e6'
     },
-    // 4. Oceanic Deep Cyan & Neon Gold
+    // 5. Electric Cyan Dark
     {
-        bgStart: '#083344', bgMid: '#164e63', bgEnd: '#0f172a',
-        badgeBg: 'rgba(6, 182, 212, 0.25)', badgeBorder: 'rgba(34, 211, 238, 0.4)', badgeText: '#67e8f9',
-        cardBg: 'rgba(8, 51, 68, 0.85)', cardBorder: 'rgba(255, 255, 255, 0.2)',
-        goldTextStart: '#fef08a', goldTextEnd: '#eab308', strokeColor: '#eab308', subTextColor: '#cffafe'
-    },
-    // 5. Golden Amber & Dark Chocolate
-    {
-        bgStart: '#451a03', bgMid: '#78350f', bgEnd: '#1c1917',
-        badgeBg: 'rgba(245, 158, 11, 0.25)', badgeBorder: 'rgba(251, 191, 36, 0.4)', badgeText: '#fde047',
-        cardBg: 'rgba(69, 26, 3, 0.85)', cardBorder: 'rgba(255, 255, 255, 0.2)',
-        goldTextStart: '#ffffff', goldTextEnd: '#fef08a', strokeColor: '#fbbf24', subTextColor: '#fef3c7'
+        bgStart: '#082f49', bgMid: '#0c4a6e', bgEnd: '#0f172a',
+        badgeBg: 'rgba(14, 165, 233, 0.25)', badgeBorder: 'rgba(125, 211, 252, 0.4)', badgeText: '#bae6fd',
+        cardBg: 'rgba(8, 47, 73, 0.85)', cardBorder: 'rgba(125, 211, 252, 0.3)',
+        goldTextStart: '#4ade80', goldTextEnd: '#16a34a', strokeColor: '#4ade80', subTextColor: '#e0f2fe'
     },
     // 6. Deep Violet Twilight
     {
@@ -215,23 +221,25 @@ Example JSON output:
         badgeText: cardBadge || '✨ FAMILY\'S POST'
     });
 
-    // Convert SVG to a REAL 1080x1080 PNG Image File using Sharp
-    const filename = `ai-card-${Date.now()}.png`;
-    const uploadsDir = path.join(__dirname, '../../public/uploads');
-    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
-    const filePath = path.join(uploadsDir, filename);
+    // Convert SVG to Base64 Data URL for Vercel/Cloud instant preview + Save PNG file if possible
+    let mediaUrl = `data:image/svg+xml;base64,${Buffer.from(svgCode).toString('base64')}`;
 
     try {
-        await sharp(Buffer.from(svgCode))
-            .png({ quality: 95 })
-            .toFile(filePath);
-        console.log(`[AI Card Generator] Successfully created 1080x1080 PNG file with random palette & FAMILY'S POST footer: /uploads/${filename}`);
+        const pngBuffer = await sharp(Buffer.from(svgCode)).png({ quality: 95 }).toBuffer();
+        mediaUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
+
+        // Attempt to save file on disk if environment permits
+        const filename = `ai-card-${Date.now()}.png`;
+        const uploadsDir = process.env.VERCEL ? path.join(require('os').tmpdir(), 'uploads') : path.join(__dirname, '../../public/uploads');
+        if (!fs.existsSync(uploadsDir)) {
+            try { fs.mkdirSync(uploadsDir, { recursive: true }); } catch (e) {}
+        }
+        const filePath = path.join(uploadsDir, filename);
+        await fs.promises.writeFile(filePath, pngBuffer);
     } catch (sharpErr) {
-        console.error('[Sharp PNG Conversion Error]:', sharpErr.message);
+        console.error('[Sharp PNG Notice]:', sharpErr.message);
     }
 
-    const mediaUrl = `/uploads/${filename}`;
     return { postText, mediaUrl };
 }
 
@@ -249,9 +257,9 @@ async function executeDailyAIPost(customPromptOverride = null) {
     // 1. Generate text & AI Graphic Banner PNG
     const { postText, mediaUrl } = await generateContentAndImageForTopic(prompt);
 
-    // 2. Publish to target platforms
+    // 2. Publish to selected active platforms
     const results = {};
-    const promises = targetPlatforms.map(async (platform) => {
+    for (const platform of targetPlatforms) {
         switch (platform.toUpperCase()) {
             case 'FACEBOOK':
                 results.facebook = await facebookService.publishPost({ message: postText, mediaUrl });
@@ -266,31 +274,24 @@ async function executeDailyAIPost(customPromptOverride = null) {
                 results.linkedin = await linkedinService.publishPost({ message: postText, mediaUrl });
                 break;
         }
-    });
+    }
 
-    await Promise.all(promises);
-
-    // 3. Save to database post history
+    // 3. Save post entry to DB
     const savedPost = db.savePost({
         message: postText,
         mediaUrl,
         targetPlatforms,
         results,
-        isAutonomousAIPost: true
+        isAutonomousAIPost: true,
+        status: 'PUBLISHED'
     });
 
-    // 4. Update last run date if automated run
-    if (!customPromptOverride) {
-        const today = new Date().toISOString().split('T')[0];
-        db.saveSettings({ aiCronLastRunDate: today });
-    }
-
-    db.addLog('POST', 'ALL', `AI Post generated & published for topic: "${prompt.substring(0, 40)}"`);
-    return { success: true, post: savedPost };
+    db.addLog('POST', 'ALL', 'Autonomous AI Daily Post published successfully with matching AI image!');
+    return savedPost;
 }
 
 /**
- * Background Cron Loop running every 60 seconds
+ * Initializes Background Cron Scheduler that checks every 60s
  */
 function initAICronScheduler() {
     console.log('[AI Cron Scheduler] Initialized background check runner (60s tick)...');
@@ -301,16 +302,12 @@ function initAICronScheduler() {
             if (!settings.aiCronEnabled) return;
 
             const now = new Date();
-            const currentHours = String(now.getHours()).padStart(2, '0');
-            const currentMinutes = String(now.getMinutes()).padStart(2, '0');
-            const currentTimeStr = `${currentHours}:${currentMinutes}`;
-            const todayStr = now.toISOString().split('T')[0];
+            const currentHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            const todayYYYYMMDD = now.toISOString().split('T')[0];
 
-            const scheduledTime = settings.aiCronTime || '10:00';
-            const lastRun = settings.aiCronLastRunDate || '';
-
-            if (currentTimeStr === scheduledTime && lastRun !== todayStr) {
-                console.log(`[AI Cron Scheduler] Time match found (${currentTimeStr}). Running daily AI post!`);
+            if (currentHHMM === settings.aiCronTime && settings.aiCronLastRunDate !== todayYYYYMMDD) {
+                db.saveSettings({ aiCronLastRunDate: todayYYYYMMDD });
+                console.log(`[AI Cron Scheduler] Triggering Scheduled Daily AI Post for time ${currentHHMM}...`);
                 await executeDailyAIPost();
             }
         } catch (err) {
@@ -319,4 +316,8 @@ function initAICronScheduler() {
     }, 60000);
 }
 
-module.exports = { initAICronScheduler, executeDailyAIPost, generateContentAndImageForTopic };
+module.exports = {
+    initAICronScheduler,
+    executeDailyAIPost,
+    generateContentAndImageForTopic
+};
