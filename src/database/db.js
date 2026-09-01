@@ -35,12 +35,17 @@ function writeCollection(collection, data) {
 // Helper methods
 const db = {
     // Posts
-    getPosts: () => readCollection('posts', []),
+    getPosts: (limit = 20) => {
+        const posts = readCollection('posts', []);
+        return limit ? posts.slice(0, limit) : posts;
+    },
     savePost: (post) => {
         const posts = readCollection('posts', []);
         post.id = post.id || `post_${Date.now()}`;
         post.createdAt = post.createdAt || new Date().toISOString();
         posts.unshift(post);
+        // Keep last 50 posts only for lightweight SaaS history
+        if (posts.length > 50) posts.pop();
         writeCollection('posts', posts);
         return post;
     },
@@ -100,7 +105,10 @@ const db = {
     },
 
     // Logs
-    getLogs: () => readCollection('logs', []),
+    getLogs: (limit = 100) => {
+        const logs = readCollection('logs', []);
+        return limit ? logs.slice(0, limit) : logs;
+    },
     addLog: (type, platform, details, status = 'success') => {
         const logs = readCollection('logs', []);
         const logEntry = {
@@ -112,32 +120,35 @@ const db = {
             status
         };
         logs.unshift(logEntry);
-        // Keep last 1000 logs
-        if (logs.length > 1000) logs.pop();
+        // Keep last 100 logs for lightweight log history
+        if (logs.length > 100) logs.pop();
         writeCollection('logs', logs);
         return logEntry;
     },
 
-    // Settings
-    getSettings: () => readCollection('settings', {
-        fbPageToken: process.env.FB_PAGE_TOKEN || '',
-        fbPageId: process.env.FB_PAGE_ID || '',
-        igAccountId: process.env.IG_ACCOUNT_ID || '',
-        telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
-        telegramChatId: process.env.TELEGRAM_CHAT_ID || '',
-        linkedinAccessToken: process.env.LINKEDIN_TOKEN || '',
-        linkedinAuthorId: process.env.LINKEDIN_AUTHOR_ID || '',
-        whatsappToken: process.env.WHATSAPP_TOKEN || '',
-        whatsappPhoneId: process.env.WHATSAPP_PHONE_ID || '',
-        geminiApiKey: process.env.GEMINI_API_KEY || '',
-        systemPrompt: process.env.SYSTEM_PROMPT || 'You are an intelligent social media customer support AI assistant for our business. Answer customer questions politely, concisely (under 3 sentences), and guide them to order or contact us for details.',
-        webhookVerifyToken: process.env.WEBHOOK_VERIFY_TOKEN || 'antigravity_secret_token_123',
-        aiCronEnabled: false,
-        aiCronTime: '10:00',
-        aiCronPrompt: 'Generate a beautiful daily Quranic Verse with Arabic text, Bangla translation, and a short inspiring daily reflection.',
-        aiCronPlatforms: ['FACEBOOK', 'INSTAGRAM', 'TELEGRAM'],
-        aiCronLastRunDate: ''
-    }),
+    // Settings with Environment Variables Fallback for Vercel
+    getSettings: () => {
+        const saved = readCollection('settings', {});
+        return {
+            fbPageToken: saved.fbPageToken || process.env.FB_PAGE_TOKEN || '',
+            fbPageId: saved.fbPageId || process.env.FB_PAGE_ID || '',
+            igAccountId: saved.igAccountId || process.env.IG_ACCOUNT_ID || '',
+            telegramBotToken: saved.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN || '',
+            telegramChatId: saved.telegramChatId || process.env.TELEGRAM_CHAT_ID || '',
+            linkedinAccessToken: saved.linkedinAccessToken || process.env.LINKEDIN_TOKEN || '',
+            linkedinAuthorId: saved.linkedinAuthorId || process.env.LINKEDIN_AUTHOR_ID || '',
+            whatsappToken: saved.whatsappToken || process.env.WHATSAPP_TOKEN || '',
+            whatsappPhoneId: saved.whatsappPhoneId || process.env.WHATSAPP_PHONE_ID || '',
+            geminiApiKey: saved.geminiApiKey || process.env.GEMINI_API_KEY || '',
+            systemPrompt: saved.systemPrompt || process.env.SYSTEM_PROMPT || 'You are an intelligent social media customer support AI assistant for our business. Answer customer questions politely, concisely (under 3 sentences), and guide them to order or contact us for details.',
+            webhookVerifyToken: saved.webhookVerifyToken || process.env.WEBHOOK_VERIFY_TOKEN || 'antigravity_secret_token_123',
+            aiCronEnabled: saved.aiCronEnabled || false,
+            aiCronTime: saved.aiCronTime || '10:00',
+            aiCronPrompt: saved.aiCronPrompt || 'Generate a beautiful daily Quranic Verse with Arabic text, Bangla translation, and a short inspiring daily reflection.',
+            aiCronPlatforms: saved.aiCronPlatforms || ['FACEBOOK', 'INSTAGRAM', 'TELEGRAM'],
+            aiCronLastRunDate: saved.aiCronLastRunDate || ''
+        };
+    },
     saveSettings: (newSettings) => {
         const current = readCollection('settings', {});
         const updated = { ...current, ...newSettings };
