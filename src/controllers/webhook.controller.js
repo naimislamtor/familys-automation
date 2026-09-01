@@ -40,10 +40,21 @@ const webhookController = {
             const platform = isInstagram ? 'INSTAGRAM' : 'FACEBOOK';
 
             body.entry?.forEach(entry => {
-                // Handle Messaging (DMs)
+                // Handle Messaging (DMs, Quick Replies & Postbacks)
                 entry.messaging?.forEach(messagingEvent => {
+                    // Ignore self-echoes sent by the Page itself
+                    if (messagingEvent.message?.is_echo) return;
+
                     const senderId = messagingEvent.sender?.id;
-                    const messageText = messagingEvent.message?.text;
+                    const settings = db.getSettings();
+                    if (senderId && settings.fbPageId && senderId === settings.fbPageId) return;
+
+                    const messageText = messagingEvent.message?.text 
+                        || messagingEvent.message?.quick_reply?.payload 
+                        || messagingEvent.postback?.title 
+                        || messagingEvent.postback?.payload 
+                        || 'hello';
+
                     if (senderId && messageText) {
                         processIncomingEvent({
                             platform,
