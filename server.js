@@ -15,13 +15,17 @@ const multer = require('multer');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize Background AI Cron Scheduler
-initAICronScheduler();
+// Initialize Background AI Cron Scheduler (If supported)
+try {
+    initAICronScheduler();
+} catch (e) {}
 
 // Ensure uploads folder exists
 const uploadsDir = path.join(__dirname, 'public/uploads');
 if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
+    try {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+    } catch (e) {}
 }
 
 // Multer Storage Setup
@@ -89,13 +93,14 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start Server
-app.listen(PORT, () => {
-    console.log(`=======================================================`);
-    console.log(` 🚀 Social Media Automation Hub Server Running!`);
-    console.log(` 🌐 Dashboard UI: http://localhost:${PORT}`);
-    console.log(` 🔗 Meta Webhook Verification URL: http://localhost:${PORT}/api/webhook/meta`);
-    console.log(` 🔗 Telegram Webhook URL: http://localhost:${PORT}/api/webhook/telegram`);
-    console.log(` 🔗 WhatsApp Webhook URL: http://localhost:${PORT}/api/webhook/whatsapp`);
-    console.log(`=======================================================`);
-});
+// Start Server locally if run directly
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`=======================================================`);
+        console.log(` 🚀 Social Media Automation Hub Server Running!`);
+        console.log(` 🌐 Dashboard UI: http://localhost:${PORT}`);
+        console.log(`=======================================================`);
+    });
+}
+
+module.exports = app;
