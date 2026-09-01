@@ -1,12 +1,12 @@
 const axios = require('axios');
 const db = require('../database/db');
 
-// Official Google Gemini API production models
+// Official Google Gemini API production models (v3.6 / v3.5 Series)
 const GEMINI_MODELS = [
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
-    'gemini-2.5-flash-lite'
+    'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-3.1-flash-lite'
 ];
 
 const ISLAMIC_QURAN_SYSTEM_PROMPT = `আপনি "Family's" ইসলামী পেজের একজন অত্যন্ত বিজ্ঞ, মার্জিত, সহানুভূতির অধিকারী এবং স্মার্ট ইসলামিক এআই অ্যাসিস্ট্যান্ট।
@@ -84,7 +84,7 @@ async function generateAIReply(userMessage, context = 'Islamic Quran & Knowledge
             const response = await axios.post(
                 `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
                 { contents: [{ parts: [{ text: prompt }] }] },
-                { headers: { 'Content-Type': 'application/json' }, timeout: 6000 }
+                { headers: { 'Content-Type': 'application/json' }, timeout: 8000 }
             );
 
             const aiText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
