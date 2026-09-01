@@ -61,12 +61,10 @@ const webhookController = {
             // Handle Messaging (DMs, Quick Replies & Postbacks)
             const messagingList = entry.messaging || entry.standby;
             messagingList?.forEach(messagingEvent => {
+                // Ignore only true self-echoes
                 if (messagingEvent.message?.is_echo) return;
 
                 const senderId = messagingEvent.sender?.id;
-                const settings = db.getSettings();
-                if (senderId && settings.fbPageId && senderId === settings.fbPageId) return;
-
                 const messageText = messagingEvent.message?.text 
                     || messagingEvent.message?.quick_reply?.payload 
                     || messagingEvent.postback?.title 
