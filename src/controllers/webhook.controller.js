@@ -23,7 +23,7 @@ const webhookController = {
         return res.sendStatus(400);
     },
 
-    // 2. Meta (FB & IG) Webhook Event Handler
+    // 2. Meta (FB & IG) Webhook Event Handler (Supports both Live Events and Meta Console Test Buttons)
     handleMetaWebhook: (req, res) => {
         const body = req.body;
         console.log('[Meta Webhook Received Event]:', JSON.stringify(body));
@@ -33,110 +33,121 @@ const webhookController = {
 
         if (!body) return;
 
-        db.addLog('WEBHOOK', 'FACEBOOK', `Webhook event payload received: ${JSON.stringify(body).substring(0, 150)}`);
+        db.addLog('WEBHOOK', 'FACEBOOK', `Webhook payload: ${JSON.stringify(body).substring(0, 160)}`);
 
-        if (body.object === 'page' || body.object === 'instagram') {
-            const isInstagram = body.object === 'instagram';
-            const platform = isInstagram ? 'INSTAGRAM' : 'FACEBOOK';
+        // 1. Handle Meta Console Test Button Payloads ({ sample: { field: "messages", value: ... } })
+        if (body.sample) {
+            const sampleField = body.sample.field;
+            const value = body.sample.value;
 
-            body.entry?.forEach(entry => {
-                // Handle Messaging (DMs, Quick Replies & Postbacks)
-                entry.messaging?.forEach(messagingEvent => {
-                    // Ignore self-echoes sent by the Page itself
-                    if (messagingEvent.message?.is_echo) return;
-
-                    const senderId = messagingEvent.sender?.id;
-                    const settings = db.getSettings();
-                    if (senderId && settings.fbPageId && senderId === settings.fbPageId) return;
-
-                    const messageText = messagingEvent.message?.text 
-                        || messagingEvent.message?.quick_reply?.payload 
-                        || messagingEvent.postback?.title 
-                        || messagingEvent.postback?.payload 
-                        || 'hello';
-
-                    if (senderId && messageText) {
-                        processIncomingEvent({
-                            platform,
-                            eventType: 'DIRECT_MESSAGE',
-                            text: messageText,
-                            senderId
-                        });
-                    }
+            if (sampleField === 'messages' && value) {
+                const senderId = value.sender?.id || '12345';
+                const messageText = value.message?.text || 'test_message';
+                db.addLog('WEBHOOK_TEST', 'FACEBOOK', `Meta Console Test Message received from ${senderId}: "${messageText}"`);
+                processIncomingEvent({
+                    platform: 'FACEBOOK',
+                    eventType: 'DIRECT_MESSAGE',
+                    text: messageText,
+                    senderId
                 });
-
-                // Handle Changes (Feed Comments)
-                entry.changes?.forEach(change => {
-                    if (change.field === 'feed' || change.field === 'comments') {
-                        const value = change.value;
-                        if (value.item === 'comment' && value.verb === 'add') {
-                            const commentId = value.comment_id || value.id;
-                            const commentText = value.message;
-                            const senderId = value.from?.id;
-
-                            if (commentId && commentText) {
-                                processIncomingEvent({
-                                    platform,
-                                    eventType: 'COMMENT',
-                                    text: commentText,
-                                    senderId,
-                                    commentId
-                                });
-                            }
-                        }
-                    }
-                });
-            });
-
-            return res.status(200).send('EVENT_RECEIVED');
+            }
+            return;
         }
 
-        return res.sendStatus(404);
+        // 2. Handle Live Webhook Payloads (body.entry, body.object)
+        const platform = (body.object === 'instagram') ? 'INSTAGRAM' : 'FACEBOOK';
+
+        body.entry?.forEach(entry => {
+            // Handle Messaging (DMs, Quick Replies & Postbacks)
+            const messagingList = entry.messaging || entry.standby;
+            messagingList?.forEach(messagingEvent => {
+                if (messagingEvent.message?.is_echo) return;
+
+                const senderId = messagingEvent.sender?.id;
+                const settings = db.getSettings();
+                if (senderId && settings.fbPageId && senderId === settings.fbPageId) return;
+
+                const messageText = messagingEvent.message?.text 
+                    || messagingEvent.message?.quick_reply?.payload 
+                    || messagingEvent.postback?.title 
+                    || messagingEvent.postback?.payload 
+                    || 'hello';
+
+                if (senderId && messageText) {
+                    processIncomingEvent({
+                        platform,
+                        eventType: 'DIRECT_MESSAGE',
+                        text: messageText,
+                        senderId
+                    });
+                }
+            });
+
+            // Handle Changes (Feed Comments)
+            entry.changes?.forEach(change => {
+                const value = change.value;
+                if (!value) return;
+
+                if (change.field === 'feed' || change.field === 'comments') {
+                    if (value.item === 'comment' && (value.verb === 'add' || !value.verb)) {
+                        const commentId = value.comment_id || value.id;
+                        const commentText = value.message;
+                        const senderId = value.from?.id;
+
+                        if (commentId && commentText) {
+                            processIncomingEvent({
+                                platform,
+                                eventType: 'COMMENT',
+                                text: commentText,
+                                senderId,
+                                commentId
+                            });
+                        }
+                    }
+                }
+            });
+        });
     },
 
-    // 3. Telegram Webhook Handler
-    handleTelegramWebhook: async (req, res) => {
-        const update = req.body;
-        db.addLog('WEBHOOK', 'TELEGRAM', `Telegram Update received: ${JSON.stringify(update).substring(0, 150)}...`);
+    // 3. Telegram Webhook Event Handler
+    handleTelegramWebhook: (req, res) => {
+        const body = req.body;
+        res.status(200).send('OK');
 
-        if (update.message && update.message.text) {
-            const chatId = update.message.chat.id;
-            const text = update.message.text;
+        if (body?.message?.text) {
+            const senderId = String(body.message.chat.id);
+            const text = body.message.text;
+
+            db.addLog('WEBHOOK', 'TELEGRAM', `Telegram DM received from ${senderId}: "${text}"`);
 
             processIncomingEvent({
                 platform: 'TELEGRAM',
                 eventType: 'DIRECT_MESSAGE',
                 text,
-                senderId: chatId
+                senderId
             });
         }
-
-        return res.status(200).json({ ok: true });
     },
 
-    // 4. WhatsApp Webhook Handler
-    handleWhatsAppWebhook: async (req, res) => {
+    // 4. WhatsApp Webhook Event Handler
+    handleWhatsAppWebhook: (req, res) => {
         const body = req.body;
-        db.addLog('WEBHOOK', 'WHATSAPP', `WhatsApp Payload received: ${JSON.stringify(body).substring(0, 150)}...`);
+        res.status(200).send('OK');
 
-        const entry = body.entry?.[0];
-        const changes = entry?.changes?.[0];
-        const value = changes?.value;
-        const message = value?.messages?.[0];
-
-        if (message && message.text?.body) {
-            const senderPhone = message.from;
+        const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+        if (message?.text?.body) {
+            const senderId = message.from;
             const text = message.text.body;
+
+            db.addLog('WEBHOOK', 'WHATSAPP', `WhatsApp DM received from ${senderId}: "${text}"`);
 
             processIncomingEvent({
                 platform: 'WHATSAPP',
                 eventType: 'DIRECT_MESSAGE',
                 text,
-                senderId: senderPhone
+                senderId
             });
         }
-
-        return res.status(200).send('EVENT_RECEIVED');
     }
 };
 
