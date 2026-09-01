@@ -68,6 +68,11 @@ function createAIPostBannerCanvasBuffer({ line1, line2, line3, subText, badgeTex
 
     const theme = BANNER_COLOR_PALETTES[Math.floor(Math.random() * BANNER_COLOR_PALETTES.length)];
 
+    // Replace color emoji symbols with clean geometric star ★ to prevent square boxes on canvas
+    const safeBadgeText = (badgeText || 'DAILY UPDATE')
+        .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '★')
+        .trim();
+
     // 1. Background Base Gradient
     const bgGlow = ctx.createLinearGradient(0, 0, 1080, 1080);
     bgGlow.addColorStop(0, theme.bgStart);
@@ -93,7 +98,7 @@ function createAIPostBannerCanvasBuffer({ line1, line2, line3, subText, badgeTex
     ctx.fillStyle = theme.badgeText;
     ctx.font = '26px HindSiliguriBold, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(badgeText || '✨ DAILY UPDATE', 290, 172);
+    ctx.fillText(safeBadgeText.startsWith('★') ? safeBadgeText : `★ ${safeBadgeText}`, 290, 172);
 
     // 4. Main Title Lines (Bengali Text rendered natively with HindSiliguri TTF)
     ctx.fillStyle = '#ffffff';
@@ -119,10 +124,10 @@ function createAIPostBannerCanvasBuffer({ line1, line2, line3, subText, badgeTex
     ctx.font = '28px HindSiliguriRegular, sans-serif';
     if (subText) ctx.fillText(subText, 540, 700);
 
-    // Footer Brand Header (Custom User Branding)
+    // Footer Brand Header (Custom User Branding with ★ Star Symbol)
     ctx.fillStyle = '#94a3b8';
     ctx.font = '24px HindSiliguriBold, sans-serif';
-    ctx.fillText('✨ FAMILY\'S POST', 540, 930);
+    ctx.fillText('★ FAMILY\'S POST', 540, 930);
 
     return canvas.toBuffer('image/png');
 }
@@ -135,7 +140,7 @@ async function generateContentAndImageForTopic(userTopicPrompt) {
     const apiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY;
 
     let postText = '';
-    let cardBadge = '✨ DAILY UPDATE';
+    let cardBadge = '★ DAILY UPDATE';
     let cardLine1 = '';
     let cardLine2 = '';
     let cardLine3 = '';
@@ -150,7 +155,7 @@ User Requested Topic: "${cleanTopic}"
 
 Return ONLY a valid JSON object with these fields:
 1. "postText": A beautifully formatted Bengali social media post with emoji headers and 4 relevant hashtags.
-2. "cardBadge": A short 2-3 word category badge title (e.g. "🕌 কুরআনের বাণী", "🚀 টেকনোলজি নিউজ", "✨ আজকের চিন্তা").
+2. "cardBadge": A short 2-3 word category badge title (e.g. "কুরআনের বাণী", "টেকনোলজি নিউজ", "আজকের চিন্তা").
 3. "cardLine1": First line of main headline/quote in Bengali (max 6 words).
 4. "cardLine2": Second line of main headline/quote in Bengali (max 6 words).
 5. "cardLine3": Highlights or punchline in Bengali (max 5 words).
@@ -159,7 +164,7 @@ Return ONLY a valid JSON object with these fields:
 Example JSON output:
 {
   "postText": "✨ **আজকের বার্তা**\\n\\nনতুন দিনে নতুন পথ চলা...",
-  "cardBadge": "✨ আজকের চিন্তা",
+  "cardBadge": "আজকের চিন্তা",
   "cardLine1": "প্রতিটি নতুন দিন",
   "cardLine2": "একটি নতুন সুযোগ",
   "cardLine3": "আজই শুরু করুন!",
@@ -213,7 +218,7 @@ Example JSON output:
         line2: cardLine2 || '',
         line3: cardLine3 || '',
         subText: cardSubText || '',
-        badgeText: cardBadge || '✨ FAMILY\'S POST'
+        badgeText: cardBadge || '★ FAMILY\'S POST'
     };
 
     // Generate Real 1080x1080 PNG Image Buffer using @napi-rs/canvas and TrueType Font
