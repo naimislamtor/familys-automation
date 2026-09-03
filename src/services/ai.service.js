@@ -1,12 +1,12 @@
 const axios = require('axios');
 const db = require('../database/db');
 
-// Official Google Gemini API production models (v3.6 / v3.5 Series)
+// Official Google Gemini API production models (with robust fallback)
 const GEMINI_MODELS = [
-    'gemini-3.6-flash',
-    'gemini-3.5-flash',
-    'gemini-3.5-flash-lite',
-    'gemini-3.1-flash-lite'
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-2.5-flash',
+    'gemini-1.5-pro'
 ];
 
 /**
@@ -75,11 +75,17 @@ async function generateAIReply(userMessage, context = 'Facebook Post Comment', s
     const genderTitle = userProfile?.gender === 'female' ? 'আপু' : 'ভাই';
     const salutation = userName ? `আসসালামু আলাইকুম ${userName} ${genderTitle}!` : `আসসালামু আলাইকুম!`;
 
+    let userIdentityContext = '';
+    if (userName) {
+        userIdentityContext = `ইউজারের পরিচিতি (মেটা এপিআই থেকে সরাসরি প্রাপ্ত): ইউজারের নাম "${userName}", সম্মানসূচক জেন্ডার: "${genderTitle}"। ইউজার যদি তার নাম কী বা পরিচয় জানতে চায়—স্পষ্ট জানাবেন যে তার নাম ${userName} ${genderTitle}।`;
+    }
+
     let greetingInstruction = (isFirstMessage && !isCommentContext)
         ? `১. ইউজারের এটি মেসেঞ্জারে ১ম বার্তা। বার্তার শুরুতে সুন্দর ইসলামী সালাম ও নামটি দিয়ে সম্ভাষণ জানাবেন (যেমন: "${salutation}")।`
         : "১. মেসেঞ্জারে পূর্বে থেকেই কথা চলছে অথবা পোস্ট কমেন্ট। বারবার সালাম দেওয়ার প্রয়োজন নেই, সরাসরি সংক্ষেপে প্রাকৃতিভাবে উত্তর দিন।";
 
     const systemPromptText = `আপনি "Family's" ইসলামী পেজের একজন অত্যন্ত বিজ্ঞ, মার্জিত, সহানুভূতির অধিকারী এবং স্মার্ট ইসলামিক এআই অ্যাসিস্ট্যান্ট।
+${userIdentityContext}
 
 আপনার মূল দায়িত্ব:
 ${greetingInstruction}
