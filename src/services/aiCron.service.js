@@ -1,22 +1,26 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
-const db = require('../database/db');
-const facebookService = require('./facebook.service');
-const instagramService = require('./instagram.service');
-const telegramService = require('./telegram.service');
-const linkedinService = require('./linkedin.service');
-
-// Register HindSiliguri TrueType fonts for @napi-rs/canvas
-const fontPathBold = path.join(__dirname, '../fonts/HindSiliguri-Bold.ttf');
-const fontPathRegular = path.join(__dirname, '../fonts/HindSiliguri-Regular.ttf');
+// Safe lazy loading for native binary module @napi-rs/canvas
+let createCanvas = null;
+let GlobalFonts = null;
+let isCanvasAvailable = false;
 
 try {
-    if (fs.existsSync(fontPathBold)) GlobalFonts.registerFromPath(fontPathBold, 'HindSiliguriBold');
-    if (fs.existsSync(fontPathRegular)) GlobalFonts.registerFromPath(fontPathRegular, 'HindSiliguriRegular');
+    const canvasPkg = require('@napi-rs/canvas');
+    createCanvas = canvasPkg.createCanvas;
+    GlobalFonts = canvasPkg.GlobalFonts;
+    isCanvasAvailable = true;
+
+    const fontPathBold = path.join(__dirname, '../fonts/HindSiliguri-Bold.ttf');
+    const fontPathRegular = path.join(__dirname, '../fonts/HindSiliguri-Regular.ttf');
+
+    if (GlobalFonts) {
+        if (fs.existsSync(fontPathBold)) GlobalFonts.registerFromPath(fontPathBold, 'HindSiliguriBold');
+        if (fs.existsSync(fontPathRegular)) GlobalFonts.registerFromPath(fontPathRegular, 'HindSiliguriRegular');
+    }
 } catch (e) {
-    console.log('[Canvas Font Register Notice]:', e.message);
+    console.log('[AI Banner Notice] Native canvas module optional.');
 }
 
 // Google Gemini Models to try in fallback order
