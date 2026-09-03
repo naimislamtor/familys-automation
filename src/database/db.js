@@ -73,22 +73,10 @@ const defaultProducts = [
 
 // Helper methods
 const db = {
-    // Product Catalog JSON Management
-    getProducts: () => {
-        const dynamicProducts = readCollection('products', null);
-        if (dynamicProducts && Array.isArray(dynamicProducts) && dynamicProducts.length > 0) {
-            return dynamicProducts;
-        }
-        try {
-            const repoPath = path.join(process.cwd(), 'data/products.json');
-            if (fs.existsSync(repoPath)) {
-                return JSON.parse(fs.readFileSync(repoPath, 'utf8'));
-            }
-        } catch (e) {}
-        return defaultProducts;
-    },
+    // Product Catalog JSON Management (Pure Server-Side)
+    getProducts: () => readCollection('products', defaultProducts),
     saveProduct: (product) => {
-        let products = db.getProducts();
+        let products = readCollection('products', defaultProducts);
         if (product.id) {
             const index = products.findIndex(p => p.id === product.id);
             if (index !== -1) products[index] = { ...products[index], ...product };
@@ -101,7 +89,7 @@ const db = {
         return product;
     },
     deleteProduct: (id) => {
-        let products = db.getProducts();
+        let products = readCollection('products', defaultProducts);
         products = products.filter(p => p.id !== id);
         writeCollection('products', products);
     },
