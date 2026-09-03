@@ -1,12 +1,13 @@
 const axios = require('axios');
 const db = require('../database/db');
 
-// Official Google Gemini API production models (with robust fallback)
+// Official Google Gemini API production models (with robust fallback order)
 const GEMINI_MODELS = [
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
     'gemini-2.5-flash',
-    'gemini-1.5-pro'
+    'gemini-1.5-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-3.6-flash',
+    'gemini-3.5-flash'
 ];
 
 /**
@@ -35,23 +36,23 @@ function getSmartQuranicAIReply(userMessage) {
         return 'আমিন, আল্লাহুম্মা আমিন! মহান আল্লাহ তাআলা আমাদের সকলের নেক দোয়া ও ইবাদত কবুল করুন।';
     }
 
-    // 5. Quran Ayah general query
-    if (msg.includes('আয়াত') || msg.includes('সূরা') || msg.includes('অনুবাদ') || msg.includes('অর্থ') || msg.includes('কুরআন')) {
-        return 'পবিত্র কুরআনের যে আয়াতের বাংলা অর্থ জানতে চান, নাম বা নম্বরটি জানান। আমি অর্থ জানিয়ে দিচ্ছি!';
+    // 5. Praise / General Positive Response
+    if (msg.includes('মাশাল্লাহ') || msg.includes('আলহামদুলিল্লাহ') || msg.includes('জাজাকাল্লাহ') || msg.includes('সুন্দর') || msg.includes('ধন্যবাদ') || msg.includes('thanks')) {
+        return 'জাজাকাল্লাহু খাইরান! আপনার মন্তব্য আমাদের উৎসাহিত করে। মহান আল্লাহ তাআলা আপনাকে উত্তম প্রতিদান দান করুন।';
     }
 
-    // 6. Greetings & Well-being
-    if (msg.includes('কেমন') || msg.includes('ভালো') || msg.includes('আছেন') || msg.includes('how are you') || msg.includes('হাই') || msg.includes('হ্যালো')) {
-        return 'আলহামদুলিল্লাহ, আল্লাহর রহমতে আমরা ভালো আছি! পবিত্র কুরআনের যেকোনো আয়াত বা ইসলামিক আলোচনার জন্য সাথে থাকুন।';
+    // 6. Address / Location Inquiry
+    if (msg.includes('ঠিকানা') || msg.includes('location') || msg.includes('কোথায়') || msg.includes('address')) {
+        return 'আসসালামু আলাইকুম! এটি "Family\'s" ইসলামী অনলাইন পেজ। আমাদের সমস্ত পণ্য ও পোস্ট অনলাইনে প্রদান করা হয়। বিস্তারিত জানতে আমাদের পেজের সাথেই থাকুন।';
     }
 
-    // 7. Gratitude
-    if (msg.includes('ধন্যবাদ') || msg.includes('thanks') || msg.includes('জাজাকাল্লাহ')) {
-        return 'জাজাকাল্লাহু খাইরান! আল্লাহ আপনাকে কুরআনের আলোয় জীবন গড়ার তৌফিক দান করুন।';
+    // 7. General Greetings
+    if (msg.includes('সালাম') || msg.includes('salam') || msg.includes('কেমন') || msg.includes('hello') || msg.includes('hi')) {
+        return 'ওয়ালাইকুম আসসালাম ওয়া রাহমাতুল্লাহ! আলহামদুলিল্লাহ, আল্লাহর রহমতে আমরা ভালো আছি। আজ আপনাকে কীভাবে সহযোগিতা করতে পারি?';
     }
 
-    // 8. Short Islamic Default Response
-    return 'আমাদের "Family\'s" ইসলামী পেজে আপনাকে স্বাগতম! কুরআনের আয়াতের বাংলা অর্থ বা ইসলামিক আলোচনার জন্য আপনার প্রশ্নটি জানান।';
+    // Default Fallback
+    return 'আসসালামু আলাইকুম! আমাদের "Family\'s" ইসলামী পেজে আপনাকে স্বাগতম। পবিত্র কুরআনের যেকোনো আয়াতের বাংলা অনুবাদ বা ইসলামিক বিষয় জানতে মেসেজ দিন।';
 }
 
 /**
@@ -59,7 +60,7 @@ function getSmartQuranicAIReply(userMessage) {
  */
 async function generateAIReply(userMessage, context = 'Facebook Post Comment', senderId = null, userProfile = null) {
     const settings = db.getSettings();
-    
+
     // Resolves Gemini API Key from database settings or Vercel process.env variables
     const apiKey = (settings.geminiApiKey && settings.geminiApiKey.trim())
         ? settings.geminiApiKey.trim()
@@ -103,11 +104,15 @@ ${greetingInstruction}
         parts: [{ text: item.text }]
     }));
 
-    const contents = [
-        { role: 'user', parts: [{ text: systemPromptText }] },
-        ...formattedHistory,
-        { role: 'user', parts: [{ text: userPromptText }] }
-    ];
+    const payload = {
+        systemInstruction: {
+            parts: [{ text: systemPromptText }]
+        },
+        contents: [
+            ...formattedHistory,
+            { role: 'user', parts: [{ text: userPromptText }] }
+        ]
+    };
 
     // 1. If no API key set anywhere, return Quranic Fallback Response
     if (!apiKey) {
@@ -120,12 +125,12 @@ ${greetingInstruction}
         return fallbackReply;
     }
 
-    // 2. Call Google Gemini API with Multi-Turn History
+    // 2. Call Google Gemini API with systemInstruction & Multi-Turn History
     for (const modelName of GEMINI_MODELS) {
         try {
             const response = await axios.post(
                 `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
-                { contents },
+                payload,
                 { headers: { 'Content-Type': 'application/json' }, timeout: 8000 }
             );
 
@@ -136,6 +141,7 @@ ${greetingInstruction}
                     db.addConversationMessage(senderId, 'user', userMessage);
                     db.addConversationMessage(senderId, 'model', trimmedText);
                 }
+                console.log(`[AI Service Success] Generated live response via model '${modelName}'`);
                 return trimmedText;
             }
         } catch (error) {
@@ -143,6 +149,8 @@ ${greetingInstruction}
         }
     }
 
+    // 3. Fallback to Smart Quranic Engine if API fails/timeouts/rate-limited
+    console.log('[AI Service Notice] Gemini API rate limited or quota exceeded. Using Smart Quranic Fallback Engine.');
     const fallbackReply = getSmartQuranicAIReply(userMessage);
     if (senderId && !isCommentContext) {
         db.addConversationMessage(senderId, 'user', userMessage);
@@ -151,4 +159,7 @@ ${greetingInstruction}
     return fallbackReply;
 }
 
-module.exports = { generateAIReply };
+module.exports = {
+    generateAIReply,
+    getSmartQuranicAIReply
+};
