@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabHeadings = {
         'tab-composer': { title: 'Cross-Platform Post Composer', subtitle: 'Publish content across Facebook, Instagram, Telegram & LinkedIn instantly.' },
         'tab-rules': { title: 'Auto-Reply & Reaction Rules', subtitle: 'Manage automatic likes, public replies, private inbox messages, and Gemini AI triggers.' },
+        'tab-products': { title: 'Product Catalog & Knowledge Base', subtitle: 'Manage products, prices & details. Gemini AI dynamically uses this catalog for customer sales support.' },
         'tab-ai-creator': { title: 'Daily AI Autonomous Content Creator', subtitle: 'Set prompts and execution times for automatic daily AI post generation and publishing.' },
         'tab-history': { title: 'Post History Log', subtitle: 'View previous cross-platform publications and their delivery statuses.' },
         'tab-settings': { title: 'API Credentials & Settings', subtitle: 'Configure Meta, Telegram, LinkedIn, WhatsApp Cloud API, and Gemini AI tokens.' },
@@ -33,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Load data when tab opens
             if (targetTab === 'tab-rules') loadRules();
+            if (targetTab === 'tab-products') loadProducts();
             if (targetTab === 'tab-ai-creator') loadSettings();
             if (targetTab === 'tab-history') loadHistory();
             if (targetTab === 'tab-settings') loadSettings();
@@ -693,6 +695,112 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-refresh-logs').addEventListener('click', () => {
         loadLogs();
         showToast('Logs refreshed.');
+    });
+
+    // Product Catalog JSON Management Functions
+    async function loadProducts() {
+        const container = document.getElementById('products-list-container');
+        if (!container) return;
+        try {
+            const res = await fetch('/api/products');
+            const products = await res.json();
+
+            if (!products || products.length === 0) {
+                container.innerHTML = `<div class="empty-state">No products in catalog. Click "Add Product" to add a new item.</div>`;
+                return;
+            }
+
+            container.innerHTML = products.map(p => `
+                <div class="rule-card glass-card" style="margin-bottom:15px; padding:15px; border-radius:10px; background: rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <h3 style="margin:0; color:#fff; font-size:1.1rem;">
+                                <span class="badge badge-primary" style="font-size:0.75rem; vertical-align:middle; margin-right:6px;"><i class="fa-solid fa-barcode"></i> ${p.code || 'N/A'}</span>
+                                ${p.title}
+                            </h3>
+                            <div style="margin-top:6px; font-size:0.9rem; color:var(--text-muted);">
+                                <span><i class="fa-solid fa-tag"></i> ${p.category || 'General'}</span> | 
+                                <span style="color:#10b981; font-weight:bold;"><i class="fa-solid fa-money-bill"></i> ${p.price}</span> | 
+                                <span class="badge ${p.stock === 'In Stock' ? 'badge-success' : 'badge-failed'}">${p.stock || 'In Stock'}</span>
+                                ${p.fbLink ? ` | <a href="${p.fbLink}" target="_blank" style="color:#60a5fa; text-decoration:none;"><i class="fa-brands fa-facebook"></i> View Post/Reel</a>` : ''}
+                            </div>
+                            <p style="margin-top:8px; font-size:0.88rem; color:#cbd5e1; line-height:1.4;">${p.description || ''}</p>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn btn-secondary btn-sm edit-product-btn" data-id="${p.id}"><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn btn-danger btn-sm delete-product-btn" data-id="${p.id}"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Edit Product Item
+            document.querySelectorAll('.edit-product-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = btn.getAttribute('data-id');
+                    const prod = products.find(p => p.id === id);
+                    if (prod) openProductModal(prod);
+                });
+            });
+
+            // Delete Product Item
+            document.querySelectorAll('.delete-product-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.getAttribute('data-id');
+                    if (confirm('Are you sure you want to delete this product item from the catalog?')) {
+                        await fetch(`/api/products/${id}`, { method: 'DELETE' });
+                        showToast('Product deleted from catalog.');
+                        loadProducts();
+                    }
+                });
+            });
+        } catch (err) {
+            console.error('Load products error:', err);
+        }
+    }
+
+    const productModal = document.getElementById('product-modal');
+    function openProductModal(prod = null) {
+        document.getElementById('modal-product-id').value = prod ? prod.id : '';
+        document.getElementById('modal-product-code').value = prod ? (prod.code || '') : '';
+        document.getElementById('modal-product-title').value = prod ? prod.title : '';
+        document.getElementById('modal-product-category').value = prod ? prod.category : '';
+        document.getElementById('modal-product-price').value = prod ? prod.price : '';
+        document.getElementById('modal-product-fblink').value = prod ? (prod.fbLink || '') : '';
+        document.getElementById('modal-product-stock').value = prod ? prod.stock : 'In Stock';
+        document.getElementById('modal-product-description').value = prod ? prod.description : '';
+        if (productModal) productModal.style.display = 'flex';
+    }
+
+    document.getElementById('btn-add-product')?.addEventListener('click', () => openProductModal());
+    document.getElementById('btn-close-product-modal')?.addEventListener('click', () => { if (productModal) productModal.style.display = 'none'; });
+    document.getElementById('btn-cancel-product')?.addEventListener('click', () => { if (productModal) productModal.style.display = 'none'; });
+
+    document.getElementById('btn-save-product')?.addEventListener('click', async () => {
+        const id = document.getElementById('modal-product-id').value;
+        const code = document.getElementById('modal-product-code').value.trim();
+        const title = document.getElementById('modal-product-title').value.trim();
+        const category = document.getElementById('modal-product-category').value.trim();
+        const price = document.getElementById('modal-product-price').value.trim();
+        const fbLink = document.getElementById('modal-product-fblink').value.trim();
+        const stock = document.getElementById('modal-product-stock').value;
+        const description = document.getElementById('modal-product-description').value.trim();
+
+        if (!title || !price) {
+            showToast('Please enter Product Title and Price.', 'error');
+            return;
+        }
+
+        const productData = { id, code, title, category, price, fbLink, stock, description };
+        await fetch('/api/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(productData)
+        });
+
+        if (productModal) productModal.style.display = 'none';
+        showToast('Product item added/updated in catalog.');
+        loadProducts();
     });
 
     // Toast Utility

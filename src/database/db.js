@@ -48,8 +48,59 @@ function writeCollection(collection, data) {
     }
 }
 
+const defaultProducts = [
+    {
+        id: 'prod_1',
+        code: 'ATAR-01',
+        title: 'ইসলামিক প্রিমিয়াম সিগনেচার আতর কালেকশন',
+        category: 'সুগন্ধি',
+        price: '৳৪৫০',
+        fbLink: 'https://facebook.com/113436587910972',
+        stock: 'In Stock',
+        description: 'বিশুদ্ধ অ্যালকোহল মুক্ত ইসলামিক সিগনেচার আতর। এটি লং-লাস্টিং প্রিমিয়াম সুগন্ধি।'
+    },
+    {
+        id: 'prod_2',
+        code: 'TASBIH-02',
+        title: 'স্মার্ট ফিঙ্গার ডিজিটাল জিকির তসবিহ কাউন্টার',
+        category: 'ইসলামিক আইটেম',
+        price: '৳২৫০',
+        fbLink: 'https://facebook.com/113436587910972',
+        stock: 'In Stock',
+        description: 'স্মার্ট ও আরামদায়ক ডিজিটাল তসবিহ কাউন্টার। স্পষ্ট নাইট এলইড ডিসপ্লে সহ।'
+    }
+];
+
 // Helper methods
 const db = {
+    // Product Catalog JSON Management
+    getProducts: () => {
+        try {
+            const repoPath = path.join(process.cwd(), 'data/products.json');
+            if (fs.existsSync(repoPath)) {
+                return JSON.parse(fs.readFileSync(repoPath, 'utf8'));
+            }
+        } catch (e) {}
+        return readCollection('products', defaultProducts);
+    },
+    saveProduct: (product) => {
+        let products = db.getProducts();
+        if (product.id) {
+            const index = products.findIndex(p => p.id === product.id);
+            if (index !== -1) products[index] = { ...products[index], ...product };
+            else products.unshift(product);
+        } else {
+            product.id = `prod_${Date.now()}`;
+            products.unshift(product);
+        }
+        writeCollection('products', products);
+        return product;
+    },
+    deleteProduct: (id) => {
+        let products = db.getProducts();
+        products = products.filter(p => p.id !== id);
+        writeCollection('products', products);
+    },
     // Conversation Memory (Last 10 messages per user/senderId)
     getConversationHistory: (senderId, limit = 10) => {
         if (!senderId) return [];

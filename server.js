@@ -77,6 +77,17 @@ app.post('/api/settings', rulesController.saveSettings);
 
 app.get('/api/logs', rulesController.getLogs);
 
+// API Routes - Products Catalog JSON
+app.get('/api/products', (req, res) => res.json(db.getProducts()));
+app.post('/api/products', (req, res) => {
+    const product = db.saveProduct(req.body);
+    res.json({ success: true, product });
+});
+app.delete('/api/products/:id', (req, res) => {
+    db.deleteProduct(req.params.id);
+    res.json({ success: true });
+});
+
 // Webhook Routes (Meta - FB & IG with aliases)
 app.get(['/api/webhook', '/api/webhook/meta'], webhookController.verifyMetaWebhook);
 app.post(['/api/webhook', '/api/webhook/meta'], webhookController.handleMetaWebhook);

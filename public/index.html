@@ -27,6 +27,9 @@
                 <a href="#rules" class="nav-item" data-tab="tab-rules">
                     <i class="fa-solid fa-robot"></i> Auto-Reply Rules
                 </a>
+                <a href="#products" class="nav-item" data-tab="tab-products">
+                    <i class="fa-solid fa-store"></i> Product Catalog
+                </a>
                 <a href="#ai-creator" class="nav-item" data-tab="tab-ai-creator">
                     <i class="fa-solid fa-wand-magic-sparkles"></i> Daily AI Creator
                 </a>
@@ -426,6 +429,26 @@
                     </div>
                 </div>
             </section>
+
+            <!-- TAB: PRODUCT CATALOG MANAGEMENT -->
+            <section id="tab-products" class="tab-page">
+                <div class="card glass">
+                    <div class="card-header">
+                        <div>
+                            <h2><i class="fa-solid fa-store"></i> Product Catalog & Knowledge Base</h2>
+                            <p class="subtitle">Manage products, prices & details. Gemini AI dynamically uses this catalog for customer sales support.</p>
+                        </div>
+                        <button class="btn btn-primary" id="btn-add-product">
+                            <i class="fa-solid fa-plus"></i> Add Product
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="products-list-container" class="rules-list">
+                            <!-- Dynamic Products Array -->
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -475,6 +498,58 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="btn-cancel-rule">Cancel</button>
                 <button class="btn btn-primary" id="btn-save-rule">Save Rule</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL FOR ADDING / EDITING PRODUCTS -->
+    <div class="modal-overlay" id="product-modal" style="display:none;">
+        <div class="modal-card glass-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-store"></i> Add / Edit Product Item</h3>
+                <button class="modal-close" id="btn-close-product-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modal-product-id">
+                <div class="form-row" style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Product Code / Model:</label>
+                        <input type="text" id="modal-product-code" placeholder="e.g. ATAR-01">
+                    </div>
+                    <div class="form-group" style="flex:2;">
+                        <label>Product Title / Name:</label>
+                        <input type="text" id="modal-product-title" placeholder="e.g. প্রিমিয়াম ইসলামিক আতর কালেকশন">
+                    </div>
+                </div>
+                <div class="form-row" style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Category:</label>
+                        <input type="text" id="modal-product-category" placeholder="e.g. সুগন্ধি, বই, ইসলামিক আইটেম">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Price:</label>
+                        <input type="text" id="modal-product-price" placeholder="e.g. ৳৪৫০">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Facebook Post / Reels / Video Link (Optional):</label>
+                    <input type="text" id="modal-product-fblink" placeholder="e.g. https://facebook.com/watch/?v=123456">
+                </div>
+                <div class="form-group">
+                    <label>Stock Status:</label>
+                    <select id="modal-product-stock">
+                        <option value="In Stock">In Stock (স্টকে আছে)</option>
+                        <option value="Out of Stock">Out of Stock (স্টকে নেই)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Description / Details:</label>
+                    <textarea id="modal-product-description" rows="3" placeholder="পণ্যের বিবরণ, সাইজ, উপাদান ইত্যাদি"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btn-cancel-product">Cancel</button>
+                <button class="btn btn-primary" id="btn-save-product">Save Product</button>
             </div>
         </div>
     </div>
