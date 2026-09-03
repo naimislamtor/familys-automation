@@ -1,6 +1,8 @@
 const db = require('../database/db');
 const { processIncomingEvent } = require('../services/ruleProcessor.service');
 
+const processedComments = new Set();
+
 // Asynchronous background processor for Meta Webhooks
 async function processMetaEventAsync(body) {
     if (!body) return;
@@ -70,6 +72,16 @@ async function processMetaEventAsync(body) {
                         const senderId = value.from?.id;
 
                         if (commentId && commentText) {
+                            if (processedComments.has(commentId)) {
+                                console.log(`[Webhook Notice] Comment ${commentId} already processed. Skipping duplicate execution.`);
+                                continue;
+                            }
+                            processedComments.add(commentId);
+                            if (processedComments.size > 2000) {
+                                const first = processedComments.values().next().value;
+                                processedComments.delete(first);
+                            }
+
                             await processIncomingEvent({
                                 platform,
                                 eventType: 'COMMENT',
