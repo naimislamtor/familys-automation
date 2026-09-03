@@ -702,23 +702,40 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('products-list-container');
         if (!container) return;
         try {
-            let products = [];
-            const localData = localStorage.getItem('autohub_products_catalog');
-            if (localData) {
-                try { products = JSON.parse(localData); } catch (e) {}
-            }
-
+            let serverProducts = [];
             try {
                 const res = await fetch('/api/products');
-                const serverProducts = await res.json();
-                if (serverProducts && Array.isArray(serverProducts) && serverProducts.length > 0) {
-                    const mergedMap = new Map();
-                    serverProducts.forEach(p => mergedMap.set(p.id || p.code || p.title, p));
-                    products.forEach(p => mergedMap.set(p.id || p.code || p.title, p));
-                    products = Array.from(mergedMap.values());
-                    localStorage.setItem('autohub_products_catalog', JSON.stringify(products));
-                }
+                serverProducts = await res.json();
             } catch (e) {}
+
+            let localProducts = [];
+            try {
+                const localData = localStorage.getItem('autohub_products_catalog');
+                if (localData) localProducts = JSON.parse(localData);
+            } catch (e) {}
+
+            // Merge server and local products cleanly
+            const mergedMap = new Map();
+            if (Array.isArray(serverProducts)) {
+                serverProducts.forEach(p => mergedMap.set(p.id || p.code || p.title, p));
+            }
+            if (Array.isArray(localProducts)) {
+                localProducts.forEach(p => mergedMap.set(p.id || p.code || p.title, p));
+            }
+
+            let products = Array.from(mergedMap.values());
+
+            // Filter out user-deleted product IDs
+            let deletedIds = [];
+            try {
+                deletedIds = JSON.parse(localStorage.getItem('autohub_deleted_products') || '[]');
+            } catch (e) {}
+
+            if (deletedIds.length > 0) {
+                products = products.filter(p => !deletedIds.includes(p.id));
+            }
+
+            localStorage.setItem('autohub_products_catalog', JSON.stringify(products));
 
             if (!products || products.length === 0) {
                 container.innerHTML = `<div class="empty-state">No products in catalog. Click "Add Product" to add a new item.</div>`;
@@ -763,8 +780,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.addEventListener('click', async () => {
                     const id = btn.getAttribute('data-id');
                     if (confirm('Are you sure you want to delete this product item from the catalog?')) {
+                        // Track deleted ID in localStorage
+                        let deleted = [];
+                        try { deleted = JSON.parse(localStorage.getItem('autohub_deleted_products') || '[]'); } catch (e) {}
+                        if (!deleted.includes(id)) deleted.push(id);
+                        localStorage.setItem('autohub_deleted_products', JSON.stringify(deleted));
+
                         products = products.filter(p => p.id !== id);
                         localStorage.setItem('autohub_products_catalog', JSON.stringify(products));
+
                         try { await fetch(`/api/products/${id}`, { method: 'DELETE' }); } catch (e) {}
                         showToast('Product deleted from catalog.');
                         loadProducts();
