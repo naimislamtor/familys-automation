@@ -814,4 +814,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial Load
     loadSettings();
+    loadProducts();
 });

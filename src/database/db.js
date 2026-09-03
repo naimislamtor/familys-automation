@@ -75,13 +75,17 @@ const defaultProducts = [
 const db = {
     // Product Catalog JSON Management
     getProducts: () => {
+        const dynamicProducts = readCollection('products', null);
+        if (dynamicProducts && Array.isArray(dynamicProducts) && dynamicProducts.length > 0) {
+            return dynamicProducts;
+        }
         try {
             const repoPath = path.join(process.cwd(), 'data/products.json');
             if (fs.existsSync(repoPath)) {
                 return JSON.parse(fs.readFileSync(repoPath, 'utf8'));
             }
         } catch (e) {}
-        return readCollection('products', defaultProducts);
+        return defaultProducts;
     },
     saveProduct: (product) => {
         let products = db.getProducts();
