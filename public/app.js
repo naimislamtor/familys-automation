@@ -697,7 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('Logs refreshed.');
     });
 
-    // Product Catalog JSON Management Functions (100% Pure Server-Side API)
+    // Product Catalog JSON Management (Identical Architecture to Auto-Reply Rules)
     async function loadProducts() {
         const container = document.getElementById('products-list-container');
         if (!container) return;
@@ -705,59 +705,60 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/products');
             const products = await res.json();
 
-            if (!products || products.length === 0) {
-                container.innerHTML = `<div class="empty-state">No products in catalog. Click "Add Product" to add a new item.</div>`;
+            if (!products || !Array.isArray(products) || products.length === 0) {
+                container.innerHTML = `<div class="empty-state" style="text-align:center; padding:30px; color:var(--text-muted);">No products in catalog. Click "+ Add Product" to add your first product.</div>`;
                 return;
             }
 
             container.innerHTML = products.map(p => `
-                <div class="rule-card glass-card" style="margin-bottom:15px; padding:15px; border-radius:10px; background: rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);">
+                <div class="rule-card glass-card" style="margin-bottom:15px; padding:18px; border-radius:12px; background: rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <div>
-                            <h3 style="margin:0; color:#fff; font-size:1.1rem;">
-                                <span class="badge badge-primary" style="font-size:0.75rem; vertical-align:middle; margin-right:6px;"><i class="fa-solid fa-barcode"></i> ${p.code || 'N/A'}</span>
-                                ${p.title}
+                            <h3 style="margin:0; color:#fff; font-size:1.1rem; display:flex; align-items:center; gap:8px;">
+                                <span class="badge badge-primary" style="font-size:0.75rem; padding:4px 8px;"><i class="fa-solid fa-barcode"></i> ${p.code || 'N/A'}</span>
+                                <strong>${p.title}</strong>
                             </h3>
-                            <div style="margin-top:6px; font-size:0.9rem; color:var(--text-muted);">
-                                <span><i class="fa-solid fa-tag"></i> ${p.category || 'General'}</span> | 
-                                <span style="color:#10b981; font-weight:bold;"><i class="fa-solid fa-money-bill"></i> ${p.price}</span> | 
+                            <div style="margin-top:8px; font-size:0.9rem; color:var(--text-muted); display:flex; align-items:center; gap:12px;">
+                                <span><i class="fa-solid fa-tag"></i> Category: <strong>${p.category || 'General'}</strong></span>
+                                <span style="color:#10b981; font-weight:bold;"><i class="fa-solid fa-money-bill"></i> Price: ${p.price}</span>
                                 <span class="badge ${p.stock === 'In Stock' ? 'badge-success' : 'badge-failed'}">${p.stock || 'In Stock'}</span>
-                                ${p.fbLink ? ` | <a href="${p.fbLink}" target="_blank" style="color:#60a5fa; text-decoration:none;"><i class="fa-brands fa-facebook"></i> View Post/Reel</a>` : ''}
+                                ${p.fbLink ? `<a href="${p.fbLink}" target="_blank" style="color:#60a5fa; text-decoration:none;"><i class="fa-brands fa-facebook"></i> View Post/Reel</a>` : ''}
                             </div>
                             <p style="margin-top:8px; font-size:0.88rem; color:#cbd5e1; line-height:1.4;">${p.description || ''}</p>
                         </div>
                         <div style="display:flex; gap:8px;">
-                            <button class="btn btn-secondary btn-sm edit-product-btn" data-id="${p.id}"><i class="fa-solid fa-pen"></i></button>
-                            <button class="btn btn-danger btn-sm delete-product-btn" data-id="${p.id}"><i class="fa-solid fa-trash"></i></button>
+                            <button class="btn btn-secondary btn-sm" onclick="editProduct('${p.id}')"><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')"><i class="fa-solid fa-trash"></i></button>
                         </div>
                     </div>
                 </div>
             `).join('');
-
-            // Edit Product Item
-            document.querySelectorAll('.edit-product-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const id = btn.getAttribute('data-id');
-                    const prod = products.find(p => p.id === id);
-                    if (prod) openProductModal(prod);
-                });
-            });
-
-            // Delete Product Item
-            document.querySelectorAll('.delete-product-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const id = btn.getAttribute('data-id');
-                    if (confirm('Are you sure you want to delete this product item from the catalog?')) {
-                        await fetch(`/api/products/${id}`, { method: 'DELETE' });
-                        showToast('Product deleted from catalog.');
-                        loadProducts();
-                    }
-                });
-            });
         } catch (err) {
             console.error('Load products error:', err);
         }
     }
+
+    window.editProduct = async (id) => {
+        try {
+            const res = await fetch('/api/products');
+            const products = await res.json();
+            const prod = products.find(p => p.id === id);
+            if (prod) openProductModal(prod);
+        } catch (err) {
+            showToast('Failed to fetch product details.', 'error');
+        }
+    };
+
+    window.deleteProduct = async (id) => {
+        if (!confirm('Are you sure you want to delete this product from the catalog?')) return;
+        try {
+            await fetch(`/api/products/${id}`, { method: 'DELETE' });
+            showToast('Product deleted from catalog.');
+            loadProducts();
+        } catch (err) {
+            showToast('Failed to delete product.', 'error');
+        }
+    };
 
     const productModal = document.getElementById('product-modal');
     function openProductModal(prod = null) {
