@@ -702,8 +702,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('products-list-container');
         if (!container) return;
         try {
-            const res = await fetch('/api/products');
-            const products = await res.json();
+            let products = [];
+            const localData = localStorage.getItem('autohub_products_catalog');
+            if (localData) {
+                try { products = JSON.parse(localData); } catch (e) {}
+            }
+
+            try {
+                const res = await fetch('/api/products');
+                const serverProducts = await res.json();
+                if (serverProducts && Array.isArray(serverProducts) && serverProducts.length > 0) {
+                    const mergedMap = new Map();
+                    serverProducts.forEach(p => mergedMap.set(p.id || p.code || p.title, p));
+                    products.forEach(p => mergedMap.set(p.id || p.code || p.title, p));
+                    products = Array.from(mergedMap.values());
+                    localStorage.setItem('autohub_products_catalog', JSON.stringify(products));
+                }
+            } catch (e) {}
 
             if (!products || products.length === 0) {
                 container.innerHTML = `<div class="empty-state">No products in catalog. Click "Add Product" to add a new item.</div>`;
@@ -748,7 +763,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.addEventListener('click', async () => {
                     const id = btn.getAttribute('data-id');
                     if (confirm('Are you sure you want to delete this product item from the catalog?')) {
-                        await fetch(`/api/products/${id}`, { method: 'DELETE' });
+                        products = products.filter(p => p.id !== id);
+                        localStorage.setItem('autohub_products_catalog', JSON.stringify(products));
+                        try { await fetch(`/api/products/${id}`, { method: 'DELETE' }); } catch (e) {}
                         showToast('Product deleted from catalog.');
                         loadProducts();
                     }
@@ -791,12 +808,28 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const productData = { id, code, title, category, price, fbLink, stock, description };
-        await fetch('/api/products', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(productData)
-        });
+        const productData = { id: id || `prod_${Date.now()}`, code, title, category, price, fbLink, stock, description };
+
+        // Save to browser localStorage instantly
+        let products = [];
+        try { products = JSON.parse(localStorage.getItem('autohub_products_catalog') || '[]'); } catch (e) {}
+        if (id) {
+            const idx = products.findIndex(p => p.id === id);
+            if (idx !== -1) products[idx] = productData;
+            else products.unshift(productData);
+        } else {
+            products.unshift(productData);
+        }
+        localStorage.setItem('autohub_products_catalog', JSON.stringify(products));
+
+        // Sync with Vercel API
+        try {
+            await fetch('/api/products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(productData)
+            });
+        } catch (e) {}
 
         if (productModal) productModal.style.display = 'none';
         showToast('Product item added/updated in catalog.');
