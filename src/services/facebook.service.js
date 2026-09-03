@@ -40,6 +40,30 @@ async function getActivePageToken(userOrPageToken, pageId) {
 }
 
 const facebookService = {
+    /**
+     * Fetches User Profile Details (first_name, last_name, gender) from Meta Graph API
+     */
+    async getUserProfile(senderPsid) {
+        if (!senderPsid) return null;
+        const settings = db.getSettings();
+        const token = settings.fbPageToken;
+        if (!token) return null;
+
+        try {
+            const url = `${GRAPH_BASE_URL}/${senderPsid}?fields=first_name,last_name,gender&access_token=${token}`;
+            const res = await axios.get(url, { timeout: 4000 });
+            if (res.data && res.data.first_name) {
+                return {
+                    first_name: res.data.first_name,
+                    last_name: res.data.last_name || '',
+                    gender: res.data.gender || 'male'
+                };
+            }
+        } catch (e) {
+            console.log('[Facebook Service Notice] getUserProfile error:', e.response?.data?.error?.message || e.message);
+        }
+        return null;
+    },
     // Publish Photo/Text Post to Facebook Page
     publishPost: async ({ message, mediaUrl }) => {
         const { fbPageToken, fbPageId } = db.getSettings();

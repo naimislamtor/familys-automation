@@ -41,26 +41,33 @@ async function processIncomingEvent({ platform, eventType, text, senderId, comme
 
     const { reaction, publicReply, privateDM, aiEnabled } = matchedRule.actions;
 
-    // Format Gender-Aware & Random Islamic Salam Prefix
-    function formatGenderAwareSalam(bodyText, senderName = '', gender = '') {
-        if (!bodyText) return bodyText;
+    let userProfile = null;
+    if (senderId && platform === 'FACEBOOK') {
+        try {
+            userProfile = await facebookService.getUserProfile(senderId);
+        } catch (e) {}
+    }
+
+    // Helper to format gender-aware & name-aware Islamic Salam
+    function formatGenderAwareSalam(bodyText) {
         const salams = [
-            'আসসালামু আলাইকুম',
-            'আসসালামু আলাইকুম ওয়া রহমাতুল্লাহ',
+            'আসসালামু আলাইকুম ওয়া রাহমাতুল্লাহ',
             'আসসালামু আলাইকুম ওয়া বারাকাতুহ'
         ];
         const randomSalam = salams[Math.floor(Math.random() * salams.length)];
 
         let honorific = '';
-        const nameLower = (senderName || '').toLowerCase();
-        
-        if (gender === 'male' || nameLower.includes('rahman') || nameLower.includes('islam') || nameLower.includes('khan') || nameLower.includes('ahmed') || nameLower.includes('hassan') || nameLower.includes('ali') || nameLower.includes('choudhury')) {
-            honorific = 'ভাই';
-        } else if (gender === 'female' || nameLower.includes('begum') || nameLower.includes('sultana') || nameLower.includes('akter') || nameLower.includes('jahan') || nameLower.includes('fatema') || nameLower.includes('nusaiba')) {
+        const realName = userProfile?.first_name || '';
+        const nameLower = realName.toLowerCase();
+        const gender = userProfile?.gender || 'male';
+
+        if (gender === 'female' || nameLower.includes('begum') || nameLower.includes('sultana') || nameLower.includes('akter') || nameLower.includes('jahan') || nameLower.includes('fatema') || nameLower.includes('nusaiba')) {
             honorific = 'আপু';
+        } else {
+            honorific = 'ভাই';
         }
 
-        const title = senderName ? `${senderName} ${honorific}`.trim() : honorific;
+        const title = realName ? `${realName} ${honorific}`.trim() : honorific;
         const prefix = title ? `${randomSalam} ${title}!` : `${randomSalam}!`;
 
         return `${prefix}\n\n${bodyText}`;
@@ -70,7 +77,7 @@ async function processIncomingEvent({ platform, eventType, text, senderId, comme
     let finalPrivateDM = privateDM || '';
 
     if (aiEnabled) {
-        const aiResponse = await generateAIReply(text, 'Islamic Quran & Knowledge Assistant', senderId);
+        const aiResponse = await generateAIReply(text, 'Islamic Quran & Knowledge Assistant', senderId, userProfile);
         finalPublicReply = aiResponse;
         finalPrivateDM = aiResponse;
     }

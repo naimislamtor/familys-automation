@@ -1,14 +1,12 @@
 const axios = require('axios');
 const db = require('../database/db');
 
-// Official Google Gemini API production models (with robust fallback)
+// Official Google Gemini API production models (v3.6 / v3.5 Series)
 const GEMINI_MODELS = [
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
     'gemini-3.6-flash',
     'gemini-3.5-flash',
     'gemini-3.5-flash-lite',
-    'gemini-2.5-flash-lite'
+    'gemini-3.1-flash-lite'
 ];
 
 /**
@@ -59,7 +57,7 @@ function getSmartQuranicAIReply(userMessage) {
 /**
  * Smart Islamic Quran AI Auto-Response Generator using Google Gemini API & Multi-Turn History
  */
-async function generateAIReply(userMessage, context = 'Islamic Quran & Knowledge Assistant', senderId = null) {
+async function generateAIReply(userMessage, context = 'Facebook Post Comment', senderId = null, userProfile = null) {
     const settings = db.getSettings();
     
     // Resolves Gemini API Key from database settings or Vercel process.env variables
@@ -73,8 +71,12 @@ async function generateAIReply(userMessage, context = 'Islamic Quran & Knowledge
     const history = (senderId && !isCommentContext) ? db.getConversationHistory(senderId, 10) : [];
     const isFirstMessage = (history.length === 0);
 
+    const userName = userProfile?.first_name || '';
+    const genderTitle = userProfile?.gender === 'female' ? 'আপু' : 'ভাই';
+    const salutation = userName ? `আসসালামু আলাইকুম ${userName} ${genderTitle}!` : `আসসালামু আলাইকুম!`;
+
     let greetingInstruction = (isFirstMessage && !isCommentContext)
-        ? "১. ইউজারের এটি মেসেঞ্জারে ১ম বার্তা। বার্তার শুরুতে সুন্দর ইসলামী সালাম ও নাম/জেন্ডার সম্মানসূচক সম্বোধন (যেমন: 'আসসালামু আলাইকুম [নাম] ভাই/আপু!') দেবেন।"
+        ? `১. ইউজারের এটি মেসেঞ্জারে ১ম বার্তা। বার্তার শুরুতে সুন্দর ইসলামী সালাম ও নামটি দিয়ে সম্ভাষণ জানাবেন (যেমন: "${salutation}")।`
         : "১. মেসেঞ্জারে পূর্বে থেকেই কথা চলছে অথবা পোস্ট কমেন্ট। বারবার সালাম দেওয়ার প্রয়োজন নেই, সরাসরি সংক্ষেপে প্রাকৃতিভাবে উত্তর দিন।";
 
     const systemPromptText = `আপনি "Family's" ইসলামী পেজের একজন অত্যন্ত বিজ্ঞ, মার্জিত, সহানুভূতির অধিকারী এবং স্মার্ট ইসলামিক এআই অ্যাসিস্ট্যান্ট।
